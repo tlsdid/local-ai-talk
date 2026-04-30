@@ -60,14 +60,14 @@ release/
 npm run build
 ```
 
-## AiHubMix 填写方式
+## API 填写方式
 
 打开左侧底部设置按钮，填写全局 API 设置：
 
-- Provider Name：`AiHubMix`
+- Provider Name：服务商名称，例如 `AiHubMix`
 - API Type：`OpenAI Compatible Chat Completions`
-- Base URL：`https://aihubmix.com/v1`
-- Model：`gpt-4.1-free`
+- Base URL：服务商提供的 OpenAI Compatible 地址，例如 `https://aihubmix.com/v1`
+- Model：服务商支持的模型名
 - API Key：填写你自己的 key
 
 请求地址会自动拼接为：
