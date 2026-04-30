@@ -5,10 +5,10 @@ const CHATS_KEY = 'local-ai-talk-chats'
 const AGENTS_KEY = 'local-ai-talk-agents'
 
 export const defaultSettings = {
-  providerName: 'AiHubMix',
-  baseUrl: 'https://aihubmix.com/v1',
+  providerName: '',
+  baseUrl: '',
   apiKey: '',
-  model: 'gpt-4.1-free',
+  model: '',
   apiType: 'openai-compatible'
 }
 
