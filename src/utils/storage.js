@@ -29,7 +29,7 @@ export function loadAgents() {
   try {
     const raw = localStorage.getItem(AGENTS_KEY)
     const savedAgents = raw ? JSON.parse(raw) : null
-    return Array.isArray(savedAgents) && savedAgents.length > 0
+    return Array.isArray(savedAgents)
       ? savedAgents.map(normalizeAgent)
       : defaultAgents.map(normalizeAgent)
   } catch {
