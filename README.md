@@ -1,6 +1,6 @@
 # Local AI Talk Client
 
-一个本地运行的 React + Vite + Tailwind AI 聊天客户端壳子。界面参考 Windows 桌面聊天软件的三栏布局和冷静配色逻辑：左侧浅灰功能栏、中间白色联系人列表、右侧雾蓝聊天区、用户黄色气泡、AI 白色气泡。
+一个本地运行的 React + Vite + Tailwind AI 聊天客户端壳子。界面参考 Windows Kak*ota*k桌面聊天软件的三栏布局和冷静配色逻辑：左侧浅灰功能栏、中间白色联系人列表、右侧雾蓝聊天区、用户黄色气泡、AI 白色气泡。
 
 ## 安装依赖
 
