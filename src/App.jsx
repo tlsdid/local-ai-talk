@@ -31,15 +31,11 @@ export default function App() {
   const [typingAgentId, setTypingAgentId] = useState(null)
 
   const selectedAgent = useMemo(() => {
-    return (
-      agents.find((agent) => agent.id === selectedAgentId) ||
-      agents[0] ||
-      makeAgent()
-    )
+    return agents.find((agent) => agent.id === selectedAgentId) || agents[0] || null
   }, [agents, selectedAgentId])
 
-  const currentMessages = chats[selectedAgent.id] || []
-  const isTyping = typingAgentId === selectedAgent.id
+  const currentMessages = selectedAgent ? chats[selectedAgent.id] || [] : []
+  const isTyping = selectedAgent ? typingAgentId === selectedAgent.id : false
   const editingAgent = editorState
     ? agents.find((agent) => agent.id === editorState.agentId) ||
       editorState.agent
@@ -61,6 +57,7 @@ export default function App() {
 
   useEffect(() => {
     function openEditorForCurrentAgent() {
+      if (!selectedAgent) return
       setEditorState({ mode: 'edit', agentId: selectedAgent.id })
     }
 
@@ -68,7 +65,7 @@ export default function App() {
     return () => {
       window.removeEventListener('edit-current-agent', openEditorForCurrentAgent)
     }
-  }, [selectedAgent.id])
+  }, [selectedAgent])
 
   function handleRailSelect(itemId) {
     setActiveRailItem(itemId)
@@ -172,6 +169,7 @@ export default function App() {
   }
 
   async function handleSend(input) {
+    if (!selectedAgent) return
     const content = typeof input === 'string' ? input : input.content
     const attachments = typeof input === 'string' ? [] : input.attachments || []
     const agentId = selectedAgent.id
@@ -203,6 +201,7 @@ export default function App() {
   }
 
   function handleClearChat() {
+    if (!selectedAgent) return
     setChats((current) => ({
       ...current,
       [selectedAgent.id]: []
@@ -210,6 +209,7 @@ export default function App() {
   }
 
   function handleDeleteMessage(messageId) {
+    if (!selectedAgent) return
     const confirmed = window.confirm('确定删除这条聊天记录吗？')
     if (!confirmed) return
 
@@ -304,7 +304,7 @@ export default function App() {
       />
       <ContactList
         agents={agents}
-        selectedAgentId={selectedAgent.id}
+        selectedAgentId={selectedAgent?.id}
         chats={chats}
         viewMode={activeRailItem === 'friends' ? 'friends' : 'chats'}
         mobileVisible={mobileScreen === 'list'}
@@ -313,16 +313,24 @@ export default function App() {
         onEditAgent={handleEditAgent}
         onCloneAgent={handleCloneAgent}
       />
-      <ChatWindow
-        agent={selectedAgent}
-        messages={currentMessages}
-        isTyping={isTyping}
-        mobileVisible={mobileScreen === 'chat'}
-        onBack={() => setMobileScreen('list')}
-        onSend={handleSend}
-        onClearChat={handleClearChat}
-        onDeleteMessage={handleDeleteMessage}
-      />
+      {selectedAgent ? (
+        <ChatWindow
+          agent={selectedAgent}
+          messages={currentMessages}
+          isTyping={isTyping}
+          mobileVisible={mobileScreen === 'chat'}
+          onBack={() => setMobileScreen('list')}
+          onSend={handleSend}
+          onClearChat={handleClearChat}
+          onDeleteMessage={handleDeleteMessage}
+        />
+      ) : (
+        <EmptyChatPanel
+          mobileVisible={mobileScreen === 'chat'}
+          onBack={() => setMobileScreen('list')}
+          onAddAgent={handleAddAgent}
+        />
+      )}
       <SettingsPanel
         open={settingsOpen}
         settings={settings}
@@ -355,15 +363,48 @@ export default function App() {
   )
 }
 
+function EmptyChatPanel({ mobileVisible, onBack, onAddAgent }) {
+  return (
+    <main
+      className={`h-[100dvh] min-w-0 flex-1 flex-col items-center justify-center bg-kakao-chat px-6 pb-[64px] text-center lg:flex lg:pb-0 ${
+        mobileVisible ? 'flex' : 'hidden'
+      }`}
+    >
+      <div className="max-w-sm rounded-md bg-white/60 px-6 py-5">
+        <p className="text-base font-semibold text-kakao-text">还没有联系人</p>
+        <p className="mt-2 text-sm leading-6 text-kakao-muted">
+          点击新增联系人，填写名称、状态和 system prompt 后就可以开始聊天。
+        </p>
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={onBack}
+            className="h-10 flex-1 rounded-md border border-kakao-line bg-white text-sm font-medium text-kakao-text lg:hidden"
+          >
+            返回列表
+          </button>
+          <button
+            type="button"
+            onClick={onAddAgent}
+            className="h-10 flex-1 rounded-md bg-kakao-yellow text-sm font-semibold text-kakao-text"
+          >
+            新增联系人
+          </button>
+        </div>
+      </div>
+    </main>
+  )
+}
+
 function normalizeImportPayload(payload) {
   if (!payload || typeof payload !== 'object') return null
 
   const agents =
-    Array.isArray(payload.agents) && payload.agents.length > 0
+    Array.isArray(payload.agents)
       ? payload.agents
-      : Array.isArray(payload.contacts) && payload.contacts.length > 0
+      : Array.isArray(payload.contacts)
         ? payload.contacts
-        : Array.isArray(payload.data?.agents) && payload.data.agents.length > 0
+        : Array.isArray(payload.data?.agents)
           ? payload.data.agents
           : null
 
