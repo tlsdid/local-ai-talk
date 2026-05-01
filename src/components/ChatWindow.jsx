@@ -339,7 +339,7 @@ export default function ChatWindow({
             onKeyDown={handleKeyDown}
             rows={1}
             placeholder="输入消息"
-            className="chat-scrollbar max-h-36 min-h-[44px] flex-1 resize-none rounded-md border border-kakao-line bg-white px-4 py-3 text-[14px] leading-5 text-kakao-text outline-none transition focus:border-zinc-400"
+            className="chat-scrollbar max-h-36 min-h-[44px] flex-1 resize-none rounded-md border border-kakao-line bg-white px-4 py-3 text-[16px] leading-5 text-kakao-text outline-none transition focus:border-zinc-400 lg:text-[14px]"
           />
 
           <button
