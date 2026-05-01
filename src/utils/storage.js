@@ -22,7 +22,13 @@ export function loadSettings() {
 }
 
 export function saveSettings(settings) {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+    return true
+  } catch (error) {
+    console.warn('Failed to save settings', error)
+    return false
+  }
 }
 
 export function loadAgents() {
@@ -38,7 +44,13 @@ export function loadAgents() {
 }
 
 export function saveAgents(agents) {
-  localStorage.setItem(AGENTS_KEY, JSON.stringify(agents.map(normalizeAgent)))
+  try {
+    localStorage.setItem(AGENTS_KEY, JSON.stringify(agents.map(normalizeAgent)))
+    return true
+  } catch (error) {
+    console.warn('Failed to save agents', error)
+    return false
+  }
 }
 
 export function loadChats() {
@@ -51,7 +63,16 @@ export function loadChats() {
 }
 
 export function saveChats(chats) {
-  localStorage.setItem(CHATS_KEY, JSON.stringify(chats))
+  try {
+    localStorage.setItem(CHATS_KEY, JSON.stringify(chats))
+    return true
+  } catch (error) {
+    console.warn('Failed to save chats', error)
+    window.alert(
+      '聊天记录保存失败：浏览器本地存储空间不足。请删除一些大图片附件，或导出备份后清理旧聊天记录。'
+    )
+    return false
+  }
 }
 
 export function makeMessage(role, content, meta = {}) {

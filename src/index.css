@@ -28,6 +28,14 @@ select {
   font: inherit;
 }
 
+@media (max-width: 1023px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 button {
   -webkit-tap-highlight-color: transparent;
 }

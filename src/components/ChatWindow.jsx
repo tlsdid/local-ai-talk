@@ -22,6 +22,9 @@ import {
 } from '../utils/documentParser.js'
 
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
+const MAX_STORED_IMAGE_BYTES = 900 * 1024
+const MAX_IMAGE_EDGE = 2048
+const IMAGE_JPEG_QUALITY = 0.9
 
 export default function ChatWindow({
   agent,
@@ -123,6 +126,28 @@ export default function ChatWindow({
     setAttachments((current) => [...current, ...nextAttachments])
     setAttachmentMenuOpen(false)
     event.target.value = ''
+  }
+
+  async function handlePaste(event) {
+    const items = Array.from(event.clipboardData?.items || [])
+    const files = items
+      .filter((item) => item.kind === 'file')
+      .map((item) => item.getAsFile())
+      .filter(Boolean)
+
+    if (files.length === 0) return
+
+    event.preventDefault()
+    const acceptedFiles = files.filter((file) => file.size <= MAX_ATTACHMENT_BYTES)
+    const rejectedCount = files.length - acceptedFiles.length
+    if (rejectedCount > 0) {
+      window.alert(`有 ${rejectedCount} 个剪贴板文件超过 5MB，已跳过。`)
+    }
+
+    const nextAttachments = await Promise.all(
+      acceptedFiles.map((file) => makeAttachment(file))
+    )
+    setAttachments((current) => [...current, ...nextAttachments])
   }
 
   function removeAttachment(id) {
@@ -337,6 +362,7 @@ export default function ChatWindow({
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             rows={1}
             placeholder="输入消息"
             className="chat-scrollbar max-h-36 min-h-[44px] flex-1 resize-none rounded-md border border-kakao-line bg-white px-4 py-3 text-[16px] leading-5 text-kakao-text outline-none transition focus:border-zinc-400 lg:text-[14px]"
@@ -480,13 +506,16 @@ function AttachmentMenuButton({ onClick, children }) {
 
 async function makeAttachment(file) {
   const isImage = file.type.startsWith('image/')
+  const imageData = isImage ? await prepareImageData(file) : null
   const attachment = {
     id: crypto.randomUUID(),
     type: isImage ? 'image' : 'file',
     name: file.name,
-    mimeType: file.type || guessMimeType(file.name),
-    size: file.size,
-    dataUrl: await readFileAsDataUrl(file)
+    mimeType: imageData?.mimeType || file.type || guessMimeType(file.name),
+    size: imageData?.size || file.size,
+    originalSize: file.size,
+    compressed: Boolean(imageData?.compressed),
+    dataUrl: imageData?.dataUrl || (await readFileAsDataUrl(file))
   }
 
   if (!isImage && isReadableTextFile(file)) {
@@ -509,6 +538,70 @@ async function makeAttachment(file) {
   }
 
   return attachment
+}
+
+async function prepareImageData(file) {
+  if (file.size <= MAX_STORED_IMAGE_BYTES) {
+    return {
+      dataUrl: await readFileAsDataUrl(file),
+      mimeType: file.type,
+      size: file.size,
+      compressed: false
+    }
+  }
+
+  try {
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height))
+    const width = Math.max(1, Math.round(bitmap.width * scale))
+    const height = Math.max(1, Math.round(bitmap.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d')
+    context.drawImage(bitmap, 0, 0, width, height)
+    bitmap.close?.()
+
+    const blob = await canvasToBlob(canvas, 'image/jpeg', IMAGE_JPEG_QUALITY)
+    if (!blob || blob.size >= file.size) {
+      return {
+        dataUrl: await readFileAsDataUrl(file),
+        mimeType: file.type,
+        size: file.size,
+        compressed: false
+      }
+    }
+
+    return {
+      dataUrl: await readBlobAsDataUrl(blob),
+      mimeType: 'image/jpeg',
+      size: blob.size,
+      compressed: true
+    }
+  } catch (error) {
+    console.warn('Image compression failed, using original image', error)
+    return {
+      dataUrl: await readFileAsDataUrl(file),
+      mimeType: file.type,
+      size: file.size,
+      compressed: false
+    }
+  }
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve) => {
+    canvas.toBlob(resolve, type, quality)
+  })
+}
+
+function readBlobAsDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
 }
 
 function readFileAsDataUrl(file) {
