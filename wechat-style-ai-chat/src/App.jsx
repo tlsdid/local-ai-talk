@@ -383,11 +383,11 @@ function ConversationList({
       </header>
       <div className="border-b border-wx-line px-4 pb-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-wx-muted" size={17} />
+          <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-wx-muted" size={17} />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="input bg-white pl-12"
+            className="input bg-white !pl-12"
             placeholder={view === 'contacts' ? '搜索联系人' : '搜索会话'}
           />
         </div>
