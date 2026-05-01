@@ -20,6 +20,20 @@
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { resourceSearchAgent } from '../../src/data/agents.js'
+import {
+  API_TYPE_GEMINI,
+  API_TYPE_OPENAI,
+  NETLIFY_CHAT_PROXY_URL,
+  REQUEST_MODE_DIRECT,
+  REQUEST_MODE_LOCAL_PROXY,
+  REQUEST_MODE_NETLIFY_PROXY,
+  apiTypes,
+  getProviderPreset,
+  normalizeApiType,
+  providerKeyId,
+  providerPresets,
+  requestModes
+} from '../../src/data/providerPresets.js'
 import { callGemini, DEFAULT_GEMINI_MODEL } from '../../src/lib/gemini.js'
 import {
   isResourceSearchAgent,
@@ -42,8 +56,10 @@ const defaultSettings = {
   userName: '我',
   userAvatarImage: '',
   userAvatarImageSize: 0,
+  providerPreset: 'custom',
+  providerKeys: {},
   providerName: '',
-  apiType: 'openai-compatible',
+  apiType: API_TYPE_OPENAI,
   baseUrl: '',
   apiKey: '',
   model: '',
@@ -235,7 +251,15 @@ function App() {
     if (!window.confirm('导入会覆盖当前本地数据，确定继续吗？')) return
     setAgents(payload.agents)
     setChats(payload.chats && typeof payload.chats === 'object' ? payload.chats : {})
-    setSettings({ ...defaultSettings, ...(payload.settings || {}) })
+    setSettings({
+      ...defaultSettings,
+      ...(payload.settings || {}),
+      providerKeys:
+        payload.settings?.providerKeys && typeof payload.settings.providerKeys === 'object'
+          ? payload.settings.providerKeys
+          : {},
+      apiType: normalizeApiType(payload.settings?.apiType)
+    })
     setSelectedId(payload.agents[0]?.id || '')
     setSettingsOpen(false)
   }
@@ -802,7 +826,46 @@ function SettingsPanel({ open, settings, onChange, onClose, onExport, onImport }
   const inputRef = useRef(null)
   const avatarInputRef = useRef(null)
   const userName = cleanMojibake(settings.userName, '')
+  const activePreset = getProviderPreset(settings.providerPreset)
+  const isGemini = normalizeApiType(settings.apiType) === API_TYPE_GEMINI
   if (!open) return null
+
+  function rememberCurrentKey(extra = {}) {
+    const keyId = providerKeyId(settings)
+    return {
+      ...(settings.providerKeys || {}),
+      ...(settings.apiKey ? { [keyId]: settings.apiKey } : {}),
+      ...(extra.providerKeys || {})
+    }
+  }
+
+  function updatePreset(presetId) {
+    const preset = getProviderPreset(presetId)
+    const providerKeys = rememberCurrentKey()
+    onChange({
+      ...settings,
+      providerPreset: preset.id,
+      providerKeys,
+      providerName: preset.providerName,
+      apiType: preset.apiType,
+      baseUrl: preset.baseUrl,
+      model: preset.model,
+      requestMode: preset.requestMode,
+      apiKey: providerKeys[preset.id] || ''
+    })
+  }
+
+  function updateApiKey(apiKey) {
+    onChange({
+      ...settings,
+      apiKey,
+      providerKeys: {
+        ...(settings.providerKeys || {}),
+        [providerKeyId(settings)]: apiKey
+      }
+    })
+  }
+
   async function handleAvatarUpload(event) {
     const file = event.target.files?.[0]
     if (!file) return
@@ -884,36 +947,47 @@ function SettingsPanel({ open, settings, onChange, onClose, onExport, onImport }
             </div>
             <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
           </div>
-          <Field label="Provider Name"><input className="input" value={settings.providerName} onChange={(e) => onChange({ ...settings, providerName: e.target.value })} /></Field>
+          <Field label="Provider Preset">
+            <select className="input bg-white" value={settings.providerPreset || 'custom'} onChange={(e) => updatePreset(e.target.value)}>
+              {providerPresets.map((preset) => (
+                <option key={preset.id} value={preset.id}>{preset.label}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Provider Name"><input className="input" value={settings.providerName} onChange={(e) => onChange({ ...settings, providerPreset: 'custom', providerName: e.target.value })} /></Field>
           <Field label="API Type">
             <select
               className="input bg-white"
-              value={settings.apiType === 'Gemini' ? 'gemini' : settings.apiType || 'openai-compatible'}
+              value={normalizeApiType(settings.apiType)}
               onChange={(e) => {
                 const apiType = e.target.value
                 onChange({
                   ...settings,
                   apiType,
-                  providerName: apiType === 'gemini' ? settings.providerName || 'Gemini' : settings.providerName,
-                  baseUrl: apiType === 'gemini' ? '' : settings.baseUrl,
-                  model: apiType === 'gemini' ? settings.model || DEFAULT_GEMINI_MODEL : settings.model
+                  providerName: apiType === API_TYPE_GEMINI ? settings.providerName || 'Gemini' : settings.providerName,
+                  baseUrl: apiType === API_TYPE_GEMINI ? '' : settings.baseUrl,
+                  model: apiType === API_TYPE_GEMINI ? settings.model || DEFAULT_GEMINI_MODEL : settings.model
                 })
               }}
             >
-              <option value="openai-compatible">OpenAI Compatible Chat Completions</option>
-              <option value="gemini">Gemini</option>
+              {apiTypes.map((type) => (
+                <option key={type.value} value={type.value}>{type.label}</option>
+              ))}
             </select>
           </Field>
-          {(settings.apiType || 'openai-compatible') !== 'gemini' && <Field label="Request Mode">
+          {!isGemini && <Field label="Request Mode">
             <select className="input bg-white" value={settings.requestMode || 'auto'} onChange={(e) => onChange({ ...settings, requestMode: e.target.value })}>
-              <option value="auto">自动选择：本地用代理，GitHub 网页用直连</option>
-              <option value="direct">浏览器直连：适合支持 CORS 的服务商</option>
-              <option value="proxy">本地代理：适合 NVIDIA 等会被 CORS 拦截的服务商</option>
+              {requestModes.map((mode) => (
+                <option key={mode.value} value={mode.value}>{mode.label}</option>
+              ))}
             </select>
           </Field>}
-          <Field label="Base URL"><input className="input" value={settings.baseUrl} onChange={(e) => onChange({ ...settings, baseUrl: e.target.value })} placeholder={(settings.apiType || 'openai-compatible') === 'gemini' ? 'Gemini 不需要 Base URL，此项会被忽略' : ''} /></Field>
-          <Field label="API Key"><input type="password" className="input" value={settings.apiKey} onChange={(e) => onChange({ ...settings, apiKey: e.target.value })} /></Field>
-          <Field label="Model"><input className="input" value={settings.model} onChange={(e) => onChange({ ...settings, model: e.target.value })} /></Field>
+          <Field label="Base URL"><input className="input" value={settings.baseUrl} onChange={(e) => onChange({ ...settings, providerPreset: 'custom', baseUrl: e.target.value })} placeholder={isGemini ? 'Gemini 不需要 Base URL，此项会被忽略' : 'https://api.poixe.com/v1'} /></Field>
+          <Field label="API Key"><input type="password" className="input" value={settings.apiKey} onChange={(e) => updateApiKey(e.target.value)} /></Field>
+          <Field label="Model">
+            <input className="input" value={settings.model} onChange={(e) => onChange({ ...settings, model: e.target.value })} placeholder={isGemini ? 'gemini-2.5-flash-lite' : 'gpt-4.1:free'} />
+            {activePreset.modelHint && <p className="mt-2 text-xs leading-5 text-wx-muted">{activePreset.modelHint}</p>}
+          </Field>
           <div className="grid grid-cols-2 gap-2 pt-2">
             <button type="button" onClick={onExport} className="flex h-10 items-center justify-center gap-2 rounded border border-wx-line"><Download size={17} />导出</button>
             <button type="button" onClick={() => inputRef.current?.click()} className="flex h-10 items-center justify-center gap-2 rounded border border-wx-line"><Upload size={17} />导入</button>
@@ -996,9 +1070,9 @@ function Field({ label, children }) {
 }
 
 async function requestChatCompletion({ settings, agent, history, input }) {
-  const apiType = settings.apiType === 'Gemini' ? 'gemini' : settings.apiType || 'openai-compatible'
+  const apiType = normalizeApiType(settings.apiType)
   if (!settings.apiKey.trim()) throw new Error('请先填写 API Key。')
-  if (!settings.model.trim() && !agent.model.trim() && apiType !== 'gemini') throw new Error('请先填写模型名。')
+  if (!settings.model.trim() && !agent.model.trim() && apiType !== API_TYPE_GEMINI) throw new Error('请先填写模型名。')
 
   const messages = [
     { role: 'system', content: agent.systemPrompt || '你是一个简洁、自然的 AI 助手。' },
@@ -1009,7 +1083,7 @@ async function requestChatCompletion({ settings, agent, history, input }) {
     { role: 'user', content: toUserContent(input) }
   ]
 
-  if (apiType === 'gemini') {
+  if (apiType === API_TYPE_GEMINI) {
     const geminiMessages = [
       { role: 'system', content: agent.systemPrompt || '你是一个简洁、自然的 AI 助手。' },
       ...history
@@ -1036,7 +1110,7 @@ async function requestChatCompletion({ settings, agent, history, input }) {
   }
 
   if (!settings.baseUrl.trim()) throw new Error('请先填写 Base URL。')
-  if (apiType !== 'openai-compatible') {
+  if (apiType !== API_TYPE_OPENAI) {
     throw new Error('当前仅支持 OpenAI Compatible Chat Completions 和 Gemini。')
   }
 
@@ -1051,8 +1125,8 @@ async function requestChatCompletion({ settings, agent, history, input }) {
 
   let response
   try {
-    if (requestMode === 'proxy') {
-      response = await fetch('http://localhost:3001/api/chat', {
+    if (requestMode === REQUEST_MODE_LOCAL_PROXY || requestMode === REQUEST_MODE_NETLIFY_PROXY) {
+      response = await fetch(requestMode === REQUEST_MODE_NETLIFY_PROXY ? NETLIFY_CHAT_PROXY_URL : 'http://localhost:3001/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1072,10 +1146,13 @@ async function requestChatCompletion({ settings, agent, history, input }) {
       })
     }
   } catch {
-    if (requestMode === 'proxy') {
+    if (requestMode === REQUEST_MODE_LOCAL_PROXY) {
       throw new Error('本地代理服务未启动，请先运行 npm run dev:all')
     }
-    throw new Error('浏览器直连失败，可能是服务商 CORS 限制。NVIDIA 等接口请切换为本地代理并运行 npm run dev:all')
+    if (requestMode === REQUEST_MODE_NETLIFY_PROXY) {
+      throw new Error('Netlify 代理请求失败，请检查 chat-proxy 函数是否已部署。')
+    }
+    throw new Error('浏览器直连失败，可能是服务商 CORS 限制。NVIDIA 等接口请使用 Netlify 代理或本地代理。')
   }
 
   const data = await response.json().catch(() => null)
@@ -1083,18 +1160,19 @@ async function requestChatCompletion({ settings, agent, history, input }) {
     throw new Error(data?.error?.message || data?.error || data?.message || `HTTP ${response.status}`)
   }
 
-  const content = requestMode === 'proxy'
+  const content = requestMode === REQUEST_MODE_LOCAL_PROXY || requestMode === REQUEST_MODE_NETLIFY_PROXY
     ? data?.content
     : data?.choices?.[0]?.message?.content
   return content?.trim() || '响应为空。'
 }
 
 function resolveRequestMode(settings) {
-  if (settings.requestMode === 'proxy') return 'proxy'
-  if (settings.requestMode === 'direct') return 'direct'
+  if (settings.requestMode === REQUEST_MODE_NETLIFY_PROXY) return REQUEST_MODE_NETLIFY_PROXY
+  if (settings.requestMode === REQUEST_MODE_LOCAL_PROXY) return REQUEST_MODE_LOCAL_PROXY
+  if (settings.requestMode === REQUEST_MODE_DIRECT) return REQUEST_MODE_DIRECT
   return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
-    ? 'proxy'
-    : 'direct'
+    ? REQUEST_MODE_LOCAL_PROXY
+    : REQUEST_MODE_DIRECT
 }
 
 function joinUrl(baseUrl, path) {
@@ -1223,9 +1301,16 @@ async function loadPersistedData() {
     readDbValue(CHATS_KEY, null)
   ])
 
-  const nextSettings = settings
-    ? { ...defaultSettings, ...settings }
-    : { ...defaultSettings, ...readJson(SETTINGS_KEY, {}) }
+  const storedSettings = settings || readJson(SETTINGS_KEY, {})
+  const nextSettings = {
+    ...defaultSettings,
+    ...storedSettings,
+    providerKeys:
+      storedSettings.providerKeys && typeof storedSettings.providerKeys === 'object'
+        ? storedSettings.providerKeys
+        : {},
+    apiType: normalizeApiType(storedSettings.apiType)
+  }
   const nextAgents = ensureBuiltInAgents(
     Array.isArray(agents)
       ? agents.map(makeAgent)
