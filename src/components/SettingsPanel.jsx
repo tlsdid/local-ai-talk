@@ -6,6 +6,10 @@ const apiTypes = [
   {
     value: 'openai-compatible',
     label: 'OpenAI Compatible Chat Completions'
+  },
+  {
+    value: 'gemini',
+    label: 'Gemini'
   }
 ]
 
@@ -35,8 +39,23 @@ export default function SettingsPanel({
 }) {
   const importInputRef = useRef(null)
   const avatarInputRef = useRef(null)
+  const isGemini = settings.apiType === 'gemini'
 
   if (!open) return null
+
+  function updateApiType(apiType) {
+    if (apiType === 'gemini') {
+      onChange({
+        ...settings,
+        providerName: settings.providerName || 'Gemini',
+        apiType,
+        baseUrl: '',
+        model: settings.model || 'gemini-2.5-flash-lite'
+      })
+      return
+    }
+    onChange({ ...settings, apiType })
+  }
 
   async function handleAvatarUpload(event) {
     const file = event.target.files?.[0]
@@ -172,16 +191,15 @@ export default function SettingsPanel({
               onChange={(event) =>
                 onChange({ ...settings, providerName: event.target.value })
               }
+              placeholder={isGemini ? 'Gemini' : ''}
               className="input"
             />
           </Field>
 
           <Field label="API Type">
             <select
-              value={settings.apiType}
-              onChange={(event) =>
-                onChange({ ...settings, apiType: event.target.value })
-              }
+              value={settings.apiType === 'Gemini' ? 'gemini' : settings.apiType}
+              onChange={(event) => updateApiType(event.target.value)}
               className="input bg-white"
             >
               {apiTypes.map((type) => (
@@ -192,21 +210,23 @@ export default function SettingsPanel({
             </select>
           </Field>
 
-          <Field label="Request Mode">
-            <select
-              value={settings.requestMode || 'auto'}
-              onChange={(event) =>
-                onChange({ ...settings, requestMode: event.target.value })
-              }
-              className="input bg-white"
-            >
-              {requestModes.map((mode) => (
-                <option key={mode.value} value={mode.value}>
-                  {mode.label}
-                </option>
-              ))}
-            </select>
-          </Field>
+          {!isGemini && (
+            <Field label="Request Mode">
+              <select
+                value={settings.requestMode || 'auto'}
+                onChange={(event) =>
+                  onChange({ ...settings, requestMode: event.target.value })
+                }
+                className="input bg-white"
+              >
+                {requestModes.map((mode) => (
+                  <option key={mode.value} value={mode.value}>
+                    {mode.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
 
           <Field label="Base URL">
             <input
@@ -214,7 +234,7 @@ export default function SettingsPanel({
               onChange={(event) =>
                 onChange({ ...settings, baseUrl: event.target.value })
               }
-              placeholder="https://aihubmix.com/v1"
+              placeholder={isGemini ? 'Gemini 不需要 Base URL，此项会被忽略' : 'https://aihubmix.com/v1'}
               className="input"
             />
           </Field>
@@ -226,7 +246,7 @@ export default function SettingsPanel({
               onChange={(event) =>
                 onChange({ ...settings, apiKey: event.target.value })
               }
-              placeholder="输入你自己的 key"
+              placeholder={isGemini ? '输入 Google AI Studio API Key' : '输入你自己的 key'}
               className="input"
             />
           </Field>
@@ -237,9 +257,14 @@ export default function SettingsPanel({
               onChange={(event) =>
                 onChange({ ...settings, model: event.target.value })
               }
-              placeholder="gpt-4.1-free"
+              placeholder={isGemini ? 'gemini-2.5-flash-lite' : 'gpt-4.1-free'}
               className="input"
             />
+            {isGemini && (
+              <p className="mt-2 text-xs text-kakao-muted">
+                可选：gemini-2.5-flash-lite、gemini-2.5-flash
+              </p>
+            )}
           </Field>
 
           <button

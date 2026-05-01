@@ -21,7 +21,9 @@ import {
   parseDocumentFile
 } from '../utils/documentParser.js'
 
-const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
+const ATTACHMENT_ACCEPT =
+  'image/*,application/pdf,text/plain,text/markdown,text/csv,application/json,audio/*,video/*'
 const MAX_STORED_IMAGE_BYTES = 900 * 1024
 const MAX_IMAGE_EDGE = 2048
 const IMAGE_JPEG_QUALITY = 0.9
@@ -122,7 +124,7 @@ export default function ChatWindow({
     const acceptedFiles = files.filter((file) => file.size <= MAX_ATTACHMENT_BYTES)
     const rejectedCount = files.length - acceptedFiles.length
     if (rejectedCount > 0) {
-      window.alert(`有 ${rejectedCount} 个文件超过 5MB，已跳过。`)
+      window.alert(`有 ${rejectedCount} 个文件超过 20MB，已跳过。`)
     }
 
     const nextAttachments = await Promise.all(
@@ -147,7 +149,7 @@ export default function ChatWindow({
     const acceptedFiles = files.filter((file) => file.size <= MAX_ATTACHMENT_BYTES)
     const rejectedCount = files.length - acceptedFiles.length
     if (rejectedCount > 0) {
-      window.alert(`有 ${rejectedCount} 个剪贴板文件超过 5MB，已跳过。`)
+      window.alert(`有 ${rejectedCount} 个剪贴板文件超过 20MB，已跳过。`)
     }
 
     const nextAttachments = await Promise.all(
@@ -401,6 +403,7 @@ export default function ChatWindow({
             <input
               ref={fileInputRef}
               type="file"
+              accept={ATTACHMENT_ACCEPT}
               multiple
               onChange={handleAttachmentSelect}
               className="hidden"
@@ -567,6 +570,10 @@ async function makeAttachment(file) {
     compressed: Boolean(imageData?.compressed),
     dataUrl: imageData?.dataUrl || (await readFileAsDataUrl(file))
   }
+  Object.defineProperty(attachment, 'rawFile', {
+    value: file,
+    enumerable: false
+  })
 
   if (!isImage && isReadableTextFile(file)) {
     attachment.textContent = await readFileAsText(file)

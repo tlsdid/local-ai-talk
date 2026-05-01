@@ -7,6 +7,10 @@ const DB_NAME = 'local-ai-talk-db'
 const DB_VERSION = 1
 const STORE_NAME = 'keyval'
 
+function normalizeApiType(apiType) {
+  return apiType === 'Gemini' ? 'gemini' : apiType || 'openai-compatible'
+}
+
 export const defaultSettings = {
   uiStyle: 'kakao',
   userName: '',
@@ -30,7 +34,11 @@ export function loadSettings() {
 }
 
 export function saveSettings(settings) {
-  const normalized = { ...defaultSettings, ...settings }
+  const normalized = {
+    ...defaultSettings,
+    ...settings,
+    apiType: normalizeApiType(settings.apiType)
+  }
   writeDbValue(SETTINGS_KEY, normalized)
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(normalized))
@@ -75,14 +83,31 @@ export function loadChats() {
 }
 
 export function saveChats(chats) {
-  writeDbValue(CHATS_KEY, chats)
+  const normalized = stripTransientFiles(chats)
+  writeDbValue(CHATS_KEY, normalized)
   try {
-    localStorage.setItem(CHATS_KEY, JSON.stringify(chats))
+    localStorage.setItem(CHATS_KEY, JSON.stringify(normalized))
     return true
   } catch (error) {
     console.warn('Failed to mirror chats to localStorage', error)
     return false
   }
+}
+
+function stripTransientFiles(chats) {
+  return Object.fromEntries(
+    Object.entries(chats || {}).map(([agentId, messages]) => [
+      agentId,
+      Array.isArray(messages)
+        ? messages.map((message) => ({
+            ...message,
+            attachments: Array.isArray(message.attachments)
+              ? message.attachments.map(({ rawFile, file, ...attachment }) => attachment)
+              : message.attachments
+          }))
+        : messages
+    ])
+  )
 }
 
 export async function loadPersistedData() {
@@ -92,9 +117,12 @@ export async function loadPersistedData() {
     readDbValue(CHATS_KEY, null)
   ])
 
-  const nextSettings = settings
-    ? { ...defaultSettings, ...settings }
-    : loadSettings()
+  const storedSettings = settings || loadSettings()
+  const nextSettings = {
+    ...defaultSettings,
+    ...storedSettings,
+    apiType: normalizeApiType(storedSettings.apiType)
+  }
   const nextAgents = Array.isArray(agents)
     ? agents.map(normalizeAgent)
     : loadAgents()
@@ -161,7 +189,7 @@ function normalizeAgent(agent) {
     apiConfig: {
       enabled: Boolean(agent.apiConfig?.enabled),
       providerName: agent.apiConfig?.providerName || '',
-      apiType: agent.apiConfig?.apiType || 'openai-compatible',
+      apiType: normalizeApiType(agent.apiConfig?.apiType),
       requestMode: agent.apiConfig?.requestMode || 'auto',
       baseUrl: agent.apiConfig?.baseUrl || '',
       apiKey: agent.apiConfig?.apiKey || '',

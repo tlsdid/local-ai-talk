@@ -7,6 +7,10 @@ const apiTypes = [
   {
     value: 'openai-compatible',
     label: 'OpenAI Compatible Chat Completions'
+  },
+  {
+    value: 'gemini',
+    label: 'Gemini'
   }
 ]
 
@@ -37,6 +41,7 @@ export default function ContactEditorPanel({
   const [draft, setDraft] = useState(agent)
   const avatarInputRef = useRef(null)
   const hasDefault = Boolean(defaultAgentMap[agent?.id])
+  const isGemini = draft?.apiConfig?.apiType === 'gemini'
 
   useEffect(() => {
     setDraft(agent)
@@ -54,6 +59,25 @@ export default function ContactEditorPanel({
       apiConfig: {
         ...current.apiConfig,
         [field]: value
+      }
+    }))
+  }
+
+  function updateApiType(apiType) {
+    setDraft((current) => ({
+      ...current,
+      apiConfig: {
+        ...current.apiConfig,
+        apiType,
+        providerName:
+          apiType === 'gemini'
+            ? current.apiConfig.providerName || 'Gemini'
+            : current.apiConfig.providerName,
+        baseUrl: apiType === 'gemini' ? '' : current.apiConfig.baseUrl,
+        model:
+          apiType === 'gemini'
+            ? current.apiConfig.model || current.model || 'gemini-2.5-flash-lite'
+            : current.apiConfig.model
       }
     }))
   }
@@ -85,7 +109,7 @@ export default function ContactEditorPanel({
               {mode === 'create' ? '新增联系人' : '编辑联系人'}
             </h2>
             <p className="mt-1 text-xs text-kakao-muted">
-              联系人配置会保存在 localStorage
+              联系人配置会保存在本地
             </p>
           </div>
           <button
@@ -165,7 +189,7 @@ export default function ContactEditorPanel({
           </Field>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Field label="头像">
+            <Field label="头像文字">
               <input
                 value={draft.avatar}
                 onChange={(event) => updateField('avatar', event.target.value)}
@@ -173,7 +197,7 @@ export default function ContactEditorPanel({
                 className="input"
               />
             </Field>
-            <Field label="头像色">
+            <Field label="头像颜色">
               <input
                 type="color"
                 value={draft.accent}
@@ -240,16 +264,14 @@ export default function ContactEditorPanel({
                   onChange={(event) =>
                     updateApiConfig('providerName', event.target.value)
                   }
-                  placeholder="留空则沿用全局"
+                  placeholder={isGemini ? 'Gemini' : '留空则沿用全局'}
                   className="input"
                 />
               </Field>
               <Field label="API Type">
                 <select
-                  value={draft.apiConfig.apiType}
-                  onChange={(event) =>
-                    updateApiConfig('apiType', event.target.value)
-                  }
+                  value={draft.apiConfig.apiType === 'Gemini' ? 'gemini' : draft.apiConfig.apiType}
+                  onChange={(event) => updateApiType(event.target.value)}
                   className="input bg-white"
                 >
                   {apiTypes.map((type) => (
@@ -259,28 +281,30 @@ export default function ContactEditorPanel({
                   ))}
                 </select>
               </Field>
-              <Field label="Request Mode">
-                <select
-                  value={draft.apiConfig.requestMode || 'auto'}
-                  onChange={(event) =>
-                    updateApiConfig('requestMode', event.target.value)
-                  }
-                  className="input bg-white"
-                >
-                  {requestModes.map((mode) => (
-                    <option key={mode.value} value={mode.value}>
-                      {mode.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              {!isGemini && (
+                <Field label="Request Mode">
+                  <select
+                    value={draft.apiConfig.requestMode || 'auto'}
+                    onChange={(event) =>
+                      updateApiConfig('requestMode', event.target.value)
+                    }
+                    className="input bg-white"
+                  >
+                    {requestModes.map((mode) => (
+                      <option key={mode.value} value={mode.value}>
+                        {mode.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
               <Field label="Base URL">
                 <input
                   value={draft.apiConfig.baseUrl}
                   onChange={(event) =>
                     updateApiConfig('baseUrl', event.target.value)
                   }
-                  placeholder="留空则沿用全局"
+                  placeholder={isGemini ? 'Gemini 不需要 Base URL，此项会被忽略' : '留空则沿用全局'}
                   className="input"
                 />
               </Field>
@@ -291,7 +315,7 @@ export default function ContactEditorPanel({
                   onChange={(event) =>
                     updateApiConfig('apiKey', event.target.value)
                   }
-                  placeholder="留空则沿用全局"
+                  placeholder={isGemini ? '输入 Google AI Studio API Key' : '留空则沿用全局'}
                   className="input"
                 />
               </Field>
@@ -301,7 +325,7 @@ export default function ContactEditorPanel({
                   onChange={(event) =>
                     updateApiConfig('model', event.target.value)
                   }
-                  placeholder="留空则使用联系人模型或全局模型"
+                  placeholder={isGemini ? 'gemini-2.5-flash-lite' : '留空则使用联系人模型或全局模型'}
                   className="input"
                 />
               </Field>

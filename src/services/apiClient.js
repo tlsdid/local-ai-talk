@@ -1,4 +1,8 @@
+import { callGemini, DEFAULT_GEMINI_MODEL } from '../lib/gemini.js'
+
 const LOCAL_PROXY_URL = 'http://localhost:3001/api/chat'
+const API_TYPE_OPENAI = 'openai-compatible'
+const API_TYPE_GEMINI = 'gemini'
 
 function isLocalHost() {
   return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
@@ -14,7 +18,12 @@ function joinUrl(baseUrl, path) {
   return `${String(baseUrl).replace(/\/+$/, '')}/${String(path).replace(/^\/+/, '')}`
 }
 
-function toOpenAiMessages(agent, history, input) {
+function normalizeApiType(apiType) {
+  if (apiType === 'Gemini') return API_TYPE_GEMINI
+  return apiType || API_TYPE_OPENAI
+}
+
+function toProviderMessages(agent, history, input) {
   const recentHistory = history
     .filter((message) => message.role === 'user' || message.role === 'assistant')
     .slice(-12)
@@ -23,40 +32,77 @@ function toOpenAiMessages(agent, history, input) {
       content:
         message.content ||
         attachmentSummary(message.attachments) ||
-        '[图片消息]'
+        '[附件消息]',
+      attachments: message.attachments || []
     }))
 
   return [
-    { role: 'system', content: agent.systemPrompt },
+    { role: 'system', content: agent.systemPrompt || '' },
     ...recentHistory,
-    { role: 'user', content: toUserContent(input) }
+    {
+      role: 'user',
+      content: typeof input === 'string' ? input : input.content,
+      attachments: typeof input === 'string' ? [] : input.attachments || []
+    }
   ]
+}
+
+function toOpenAiMessages(messages) {
+  return messages.map((message) => {
+    if (message.role !== 'user') {
+      return {
+        role: message.role,
+        content: message.content || attachmentSummary(message.attachments)
+      }
+    }
+
+    return {
+      role: 'user',
+      content: toUserContent(message)
+    }
+  })
 }
 
 export async function sendChatCompletion({ settings, agent, history, input }) {
   const effectiveSettings = resolveSettings(settings, agent)
+  const apiType = normalizeApiType(effectiveSettings.apiType)
+  const messages = toProviderMessages(agent, history, input)
 
   if (!effectiveSettings.apiKey.trim()) {
-    throw new Error('请先在设置里填写 API Key。')
+    throw new Error(apiType === API_TYPE_GEMINI ? '缺少 Gemini API Key' : '请先在设置里填写 API Key。')
+  }
+
+  if (!effectiveSettings.model.trim() && apiType !== API_TYPE_GEMINI) {
+    throw new Error('请先在设置里填写 Model。')
+  }
+
+  if (apiType === API_TYPE_GEMINI) {
+    const content = await callGemini({
+      apiKey: effectiveSettings.apiKey.trim(),
+      model: effectiveSettings.model.trim() || DEFAULT_GEMINI_MODEL,
+      messages,
+      temperature: 0.7
+    })
+
+    if (!content) {
+      throw new Error('Gemini 响应为空。')
+    }
+
+    return content.trim()
   }
 
   if (!effectiveSettings.baseUrl.trim()) {
     throw new Error('请先在设置里填写 Base URL。')
   }
 
-  if (!effectiveSettings.model.trim()) {
-    throw new Error('请先在设置里填写 Model。')
+  if (apiType !== API_TYPE_OPENAI) {
+    throw new Error('当前仅支持 OpenAI Compatible Chat Completions 和 Gemini。')
   }
 
-  if (effectiveSettings.apiType !== 'openai-compatible') {
-    throw new Error('当前仅支持 OpenAI Compatible Chat Completions。')
-  }
-
-  const messages = toOpenAiMessages(agent, history, input)
   const requestMode = resolveRequestMode(effectiveSettings)
   const body = {
     model: effectiveSettings.model.trim(),
-    messages,
+    messages: toOpenAiMessages(messages),
     temperature: 0.7,
     max_tokens: 1024,
     stream: false
@@ -122,21 +168,20 @@ async function readJsonResponse(response) {
   }
 }
 
-function toUserContent(input) {
-  if (typeof input === 'string') return input
-
-  const attachments = input.attachments || []
-  if (attachments.length === 0) return input.content
+function toUserContent(message) {
+  const attachments = message.attachments || []
+  if (attachments.length === 0) return message.content || ''
 
   const images = attachments.filter(
     (attachment) => attachment.type === 'image' && attachment.dataUrl
   )
   const files = attachments.filter((attachment) => attachment.type !== 'image')
-  const parts = []
-  parts.push({
-    type: 'text',
-    text: buildTextPrompt(input.content, images, files)
-  })
+  const parts = [
+    {
+      type: 'text',
+      text: buildTextPrompt(message.content, images, files)
+    }
+  ]
 
   images.forEach((attachment) => {
     parts.push({
