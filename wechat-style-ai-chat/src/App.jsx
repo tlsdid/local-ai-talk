@@ -387,7 +387,7 @@ function ConversationList({
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="input bg-white pl-9"
+            className="input bg-white pl-12"
             placeholder={view === 'contacts' ? '搜索联系人' : '搜索会话'}
           />
         </div>
@@ -658,7 +658,7 @@ function AgentEditor({ agent, onClose, onSave, onDelete }) {
                     }
                     className="h-9 rounded border border-red-200 px-3 text-sm text-red-600 hover:bg-red-50"
                   >
-                    绉婚櫎
+                    移除
                   </button>
                 )}
               </div>
@@ -671,16 +671,16 @@ function AgentEditor({ agent, onClose, onSave, onDelete }) {
               />
             </div>
           </div>
-          <Field label="鍚嶇О"><input className="input" value={draft.name} onChange={(event) => update('name', event.target.value)} /></Field>
+          <Field label="名称"><input className="input" value={draft.name} onChange={(event) => update('name', event.target.value)} /></Field>
           <Field label="头像文字"><input className="input" value={draft.avatar} maxLength={6} onChange={(event) => update('avatar', event.target.value)} placeholder="未上传头像时显示" /></Field>
-          <Field label="鍒嗙粍"><input className="input" value={draft.group} onChange={(event) => update('group', event.target.value)} /></Field>
+          <Field label="分组"><input className="input" value={draft.group} onChange={(event) => update('group', event.target.value)} /></Field>
           <Field label="状态"><input className="input" value={draft.status} onChange={(event) => update('status', event.target.value)} /></Field>
           <Field label="单独模型"><input className="input" value={draft.model} onChange={(event) => update('model', event.target.value)} placeholder="留空使用全局模型" /></Field>
           <Field label="System Prompt">
             <textarea className="min-h-40 w-full resize-y rounded border border-wx-line px-3 py-2 text-[16px] leading-6 outline-none lg:text-[14px]" value={draft.systemPrompt} onChange={(event) => update('systemPrompt', event.target.value)} />
           </Field>
           <div className="sticky bottom-0 -mx-4 flex gap-2 border-t border-wx-line bg-white px-4 py-3">
-            <button type="button" onClick={() => onSave(draft)} className="h-10 flex-1 rounded bg-[#07C160] text-sm font-medium text-white">淇濆瓨</button>
+            <button type="button" onClick={() => onSave(draft)} className="h-10 flex-1 rounded bg-[#07C160] text-sm font-medium text-white">保存</button>
             <button type="button" onClick={() => onDelete(draft.id)} className="h-10 w-10 rounded border border-red-200 text-red-600"><Trash2 size={17} className="mx-auto" /></button>
           </div>
         </div>
@@ -692,6 +692,7 @@ function AgentEditor({ agent, onClose, onSave, onDelete }) {
 function SettingsPanel({ open, settings, onChange, onClose, onExport, onImport }) {
   const inputRef = useRef(null)
   const avatarInputRef = useRef(null)
+  const userName = cleanMojibake(settings.userName, '')
   if (!open) return null
   async function handleAvatarUpload(event) {
     const file = event.target.files?.[0]
@@ -739,12 +740,12 @@ function SettingsPanel({ open, settings, onChange, onClose, onExport, onImport }
           </button>
 
           <div className="rounded border border-wx-line p-4">
-            <p className="mb-3 text-sm font-medium text-wx-text">鎴戠殑璧勬枡</p>
+            <p className="mb-3 text-sm font-medium text-wx-text">我的资料</p>
             <div className="flex items-center gap-4">
               <Avatar
                 agent={{
-                  name: settings.userName || '?',
-                  avatar: '?',
+                  name: userName || '我',
+                  avatar: '我',
                   avatarImage: settings.userAvatarImage
                 }}
                 large
@@ -752,9 +753,9 @@ function SettingsPanel({ open, settings, onChange, onClose, onExport, onImport }
               <div className="min-w-0 flex-1">
                 <input
                   className="input"
-                  value={settings.userName || ''}
+                  value={userName}
                   onChange={(e) => onChange({ ...settings, userName: e.target.value })}
-                  placeholder="鎴戠殑鏄电О"
+                  placeholder="我的昵称"
                 />
                 <div className="mt-2 flex gap-2">
                   <button type="button" onClick={() => avatarInputRef.current?.click()} className="h-9 rounded border border-wx-line px-3 text-sm hover:bg-wx-list">
@@ -766,7 +767,7 @@ function SettingsPanel({ open, settings, onChange, onClose, onExport, onImport }
                       onClick={() => onChange({ ...settings, userAvatarImage: '', userAvatarImageSize: 0 })}
                       className="h-9 rounded border border-red-200 px-3 text-sm text-red-600 hover:bg-red-50"
                     >
-                      绉婚櫎
+                      移除
                     </button>
                   )}
                 </div>
@@ -1081,6 +1082,13 @@ async function writeDbValue(key, value) {
 function formatTime(value) {
   if (!value) return ''
   return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function cleanMojibake(value, fallback = '') {
+  if (!value) return fallback
+  const text = String(value)
+  const looksBroken = /[�]|[鎴鐢电戞枡绯讳繚瓨鍏抽棴]|[?]{2,}/.test(text)
+  return looksBroken ? fallback : text
 }
 
 function formatBytes(bytes = 0) {
