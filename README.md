@@ -14,6 +14,7 @@ React + Vite + Tailwind 制作的本地 AI 聊天客户端。
 ### KKT 风格
 
 ![KKT 桌面端预览](docs/images/kkt-desktop-preview.png)
+![KKT 桌面端预览 2](docs/images/kkt-desktop-preview-1.png)
 ![KKT 手机端预览](docs/images/kkt-mobile-preview.png)
 
 ### 微信风格
@@ -63,7 +64,10 @@ http://localhost:5174
 
 ## API 设置
 
-支持 OpenAI Compatible Chat Completions。
+支持：
+
+- OpenAI Compatible Chat Completions
+- Gemini
 
 常见配置项：
 
@@ -86,6 +90,16 @@ NVIDIA 等接口建议使用本地代理，并运行：
 
 ```bash
 npm run dev:all
+```
+
+Gemini 示例：
+
+```text
+Provider Name: Gemini
+API Type: Gemini
+Base URL: 留空
+Model: gemini-2.5-flash-lite
+API Key: Google AI Studio API Key
 ```
 
 ## GitHub Pages

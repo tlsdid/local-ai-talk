@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/genai": "^1.51.0",
     "@vitejs/plugin-react": "^5.0.4",
     "vite": "^7.1.7",
     "react": "^19.1.1",

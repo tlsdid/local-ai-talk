@@ -19,6 +19,7 @@
   X
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { callGemini, DEFAULT_GEMINI_MODEL } from '../../src/lib/gemini.js'
 
 const SETTINGS_KEY = 'local-ai-talk-settings'
 const AGENTS_KEY = 'local-ai-talk-agents'
@@ -26,7 +27,8 @@ const CHATS_KEY = 'local-ai-talk-chats'
 const DB_NAME = 'local-ai-talk-db'
 const DB_VERSION = 1
 const STORE_NAME = 'keyval'
-const MAX_FILE_BYTES = 5 * 1024 * 1024
+const MAX_FILE_BYTES = 20 * 1024 * 1024
+const ATTACHMENT_ACCEPT = 'image/*,application/pdf,text/plain,text/markdown,text/csv,application/json,audio/*,video/*'
 const MAX_IMAGE_EDGE = 1800
 const MAX_IMAGE_BYTES = 900 * 1024
 
@@ -472,7 +474,7 @@ function ChatPane({ agent, selfProfile, messages, isTyping, visible, onBack, onS
 
   function submit() {
     const content = draft.trim()
-    if (!content && attachments.length === 0) return
+    if ((!content && attachments.length === 0) || isTyping) return
     setDraft('')
     setAttachments([])
     onSend({ content, attachments })
@@ -495,7 +497,7 @@ function ChatPane({ agent, selfProfile, messages, isTyping, visible, onBack, onS
 
   async function addFiles(files) {
     const accepted = files.filter((file) => file.size <= MAX_FILE_BYTES)
-    if (accepted.length < files.length) window.alert('部分文件超过 5MB，已跳过。')
+    if (accepted.length < files.length) window.alert('部分文件超过 20MB，已跳过。')
     const next = await Promise.all(accepted.map(makeAttachment))
     setAttachments((current) => [...current, ...next])
     setMenuOpen(false)
@@ -598,7 +600,7 @@ function ChatPane({ agent, selfProfile, messages, isTyping, visible, onBack, onS
               </div>
             )}
             <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileSelect} />
-            <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
+            <input ref={fileInputRef} type="file" accept={ATTACHMENT_ACCEPT} multiple className="hidden" onChange={handleFileSelect} />
           </div>
           <textarea
             value={draft}
@@ -617,7 +619,7 @@ function ChatPane({ agent, selfProfile, messages, isTyping, visible, onBack, onS
           <button
             type="button"
             onClick={submit}
-            disabled={!draft.trim() && attachments.length === 0}
+            disabled={(!draft.trim() && attachments.length === 0) || isTyping}
             className="flex h-10 w-10 items-center justify-center rounded bg-[#07C160] text-white disabled:bg-zinc-300"
           >
             <Send size={18} />
@@ -852,18 +854,32 @@ function SettingsPanel({ open, settings, onChange, onClose, onExport, onImport }
           </div>
           <Field label="Provider Name"><input className="input" value={settings.providerName} onChange={(e) => onChange({ ...settings, providerName: e.target.value })} /></Field>
           <Field label="API Type">
-            <select className="input bg-white" value={settings.apiType || 'openai-compatible'} onChange={(e) => onChange({ ...settings, apiType: e.target.value })}>
+            <select
+              className="input bg-white"
+              value={settings.apiType === 'Gemini' ? 'gemini' : settings.apiType || 'openai-compatible'}
+              onChange={(e) => {
+                const apiType = e.target.value
+                onChange({
+                  ...settings,
+                  apiType,
+                  providerName: apiType === 'gemini' ? settings.providerName || 'Gemini' : settings.providerName,
+                  baseUrl: apiType === 'gemini' ? '' : settings.baseUrl,
+                  model: apiType === 'gemini' ? settings.model || DEFAULT_GEMINI_MODEL : settings.model
+                })
+              }}
+            >
               <option value="openai-compatible">OpenAI Compatible Chat Completions</option>
+              <option value="gemini">Gemini</option>
             </select>
           </Field>
-          <Field label="Request Mode">
+          {(settings.apiType || 'openai-compatible') !== 'gemini' && <Field label="Request Mode">
             <select className="input bg-white" value={settings.requestMode || 'auto'} onChange={(e) => onChange({ ...settings, requestMode: e.target.value })}>
               <option value="auto">自动选择：本地用代理，GitHub 网页用直连</option>
               <option value="direct">浏览器直连：适合支持 CORS 的服务商</option>
               <option value="proxy">本地代理：适合 NVIDIA 等会被 CORS 拦截的服务商</option>
             </select>
-          </Field>
-          <Field label="Base URL"><input className="input" value={settings.baseUrl} onChange={(e) => onChange({ ...settings, baseUrl: e.target.value })} /></Field>
+          </Field>}
+          <Field label="Base URL"><input className="input" value={settings.baseUrl} onChange={(e) => onChange({ ...settings, baseUrl: e.target.value })} placeholder={(settings.apiType || 'openai-compatible') === 'gemini' ? 'Gemini 不需要 Base URL，此项会被忽略' : ''} /></Field>
           <Field label="API Key"><input type="password" className="input" value={settings.apiKey} onChange={(e) => onChange({ ...settings, apiKey: e.target.value })} /></Field>
           <Field label="Model"><input className="input" value={settings.model} onChange={(e) => onChange({ ...settings, model: e.target.value })} /></Field>
           <div className="grid grid-cols-2 gap-2 pt-2">
@@ -948,12 +964,9 @@ function Field({ label, children }) {
 }
 
 async function requestChatCompletion({ settings, agent, history, input }) {
+  const apiType = settings.apiType === 'Gemini' ? 'gemini' : settings.apiType || 'openai-compatible'
   if (!settings.apiKey.trim()) throw new Error('请先填写 API Key。')
-  if (!settings.baseUrl.trim()) throw new Error('请先填写 Base URL。')
-  if (!settings.model.trim() && !agent.model.trim()) throw new Error('请先填写模型名。')
-  if ((settings.apiType || 'openai-compatible') !== 'openai-compatible') {
-    throw new Error('当前仅支持 OpenAI Compatible Chat Completions。')
-  }
+  if (!settings.model.trim() && !agent.model.trim() && apiType !== 'gemini') throw new Error('请先填写模型名。')
 
   const messages = [
     { role: 'system', content: agent.systemPrompt || '你是一个简洁、自然的 AI 助手。' },
@@ -963,6 +976,38 @@ async function requestChatCompletion({ settings, agent, history, input }) {
       .map((message) => ({ role: message.role, content: message.content || '[附件消息]' })),
     { role: 'user', content: toUserContent(input) }
   ]
+
+  if (apiType === 'gemini') {
+    const geminiMessages = [
+      { role: 'system', content: agent.systemPrompt || '你是一个简洁、自然的 AI 助手。' },
+      ...history
+        .filter((message) => message.role === 'user' || message.role === 'assistant')
+        .slice(-12)
+        .map((message) => ({
+          role: message.role,
+          content: message.content || '[附件消息]',
+          attachments: message.attachments || []
+        })),
+      {
+        role: 'user',
+        content: input.content,
+        attachments: input.attachments || []
+      }
+    ]
+    const content = await callGemini({
+      apiKey: settings.apiKey.trim(),
+      model: agent.model || settings.model || DEFAULT_GEMINI_MODEL,
+      messages: geminiMessages,
+      temperature: 0.7
+    })
+    return content.trim() || '响应为空。'
+  }
+
+  if (!settings.baseUrl.trim()) throw new Error('请先填写 Base URL。')
+  if (apiType !== 'openai-compatible') {
+    throw new Error('当前仅支持 OpenAI Compatible Chat Completions 和 Gemini。')
+  }
+
   const requestMode = resolveRequestMode(settings)
   const body = {
     model: agent.model || settings.model,
@@ -1052,6 +1097,10 @@ async function makeAttachment(file) {
     compressed: Boolean(prepared?.compressed),
     dataUrl: prepared?.dataUrl || (await readAsDataUrl(file))
   }
+  Object.defineProperty(item, 'rawFile', {
+    value: file,
+    enumerable: false
+  })
   if (!isImage && isTextLike(file)) item.textContent = await file.text()
   return item
 }
@@ -1166,12 +1215,29 @@ function readJson(key, fallback) {
 }
 
 function writeJson(key, value) {
-  writeDbValue(key, value)
+  const storedValue = key === CHATS_KEY ? stripTransientFiles(value) : value
+  writeDbValue(key, storedValue)
   try {
-    localStorage.setItem(key, JSON.stringify(value))
+    localStorage.setItem(key, JSON.stringify(storedValue))
   } catch (error) {
     console.warn('Failed to mirror data to localStorage', error)
   }
+}
+
+function stripTransientFiles(chats) {
+  return Object.fromEntries(
+    Object.entries(chats || {}).map(([agentId, messages]) => [
+      agentId,
+      Array.isArray(messages)
+        ? messages.map((message) => ({
+            ...message,
+            attachments: Array.isArray(message.attachments)
+              ? message.attachments.map(({ rawFile, file, ...attachment }) => attachment)
+              : message.attachments
+          }))
+        : messages
+    ])
+  )
 }
 
 function openDb() {
