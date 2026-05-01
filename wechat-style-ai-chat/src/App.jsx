@@ -160,7 +160,7 @@ function App() {
         ...current,
         [agentId]: [
           ...(current[agentId] || []),
-          makeMessage('error', `璇锋眰澶辫触锛?{error.message || '鏈煡閿欒'}`)
+          makeMessage('error', `请求失败：${error.message || '未知错误'}`)
         ]
       }))
     } finally {
@@ -170,7 +170,7 @@ function App() {
 
   function deleteMessage(messageId) {
     if (!selectedAgent) return
-    if (!window.confirm('纭畾鍒犻櫎杩欐潯娑堟伅鍚楋紵')) return
+    if (!window.confirm('确定删除这条消息吗？')) return
     setChats((current) => ({
       ...current,
       [selectedAgent.id]: (current[selectedAgent.id] || []).filter(
@@ -278,10 +278,10 @@ function App() {
 
 function Rail({ active, onSelect, onSettings }) {
   const items = [
-    { id: 'contacts', label: '???', icon: UserRound },
-    { id: 'chats', label: '??', icon: MessageCircle },
-    { id: 'more', label: '??', icon: MoreHorizontal },
-    { id: 'notice', label: '??', icon: Bell }
+    { id: 'contacts', label: '通讯录', icon: UserRound },
+    { id: 'chats', label: '微信', icon: MessageCircle },
+    { id: 'more', label: '更多', icon: MoreHorizontal },
+    { id: 'notice', label: '通知', icon: Bell }
   ]
 
   return (
@@ -298,13 +298,13 @@ function Rail({ active, onSelect, onSettings }) {
         {items.map((item) => (
           <RailButton key={item.id} item={item} active={active === item.id} onClick={() => onSelect(item.id)} mobile />
         ))}
-        <RailButton item={{ id: 'settings', label: '璁剧疆', icon: Settings }} onClick={onSettings} mobile />
+        <RailButton item={{ id: 'settings', label: '设置', icon: Settings }} onClick={onSettings} mobile />
       </div>
       <button
         type="button"
         onClick={onSettings}
         className="hidden h-10 w-10 items-center justify-center rounded-md hover:bg-wx-railActive lg:flex"
-        title="璁剧疆"
+        title="设置"
       >
         <Settings size={22} />
       </button>
@@ -373,10 +373,10 @@ function ConversationList({
     <aside className={`${visible ? 'block' : 'hidden'} h-[100dvh] w-full bg-wx-list pb-[64px] lg:block lg:w-[360px] lg:border-r lg:border-wx-line lg:pb-0`}>
       <header className="flex h-[90px] items-end justify-between px-5 pb-3 lg:h-[72px] lg:items-center lg:pb-0">
         <h1 className="text-center text-[22px] font-semibold text-wx-text lg:text-left">
-          {view === 'contacts' ? '???' : '??'}
+          {view === 'contacts' ? '通讯录' : '微信'}
         </h1>
         <div className="flex gap-1">
-          <IconButton title="?????" onClick={onAdd}>
+          <IconButton title="新增联系人" onClick={onAdd}>
             <Plus size={21} />
           </IconButton>
         </div>
@@ -388,14 +388,14 @@ function ConversationList({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className="input bg-white pl-9"
-            placeholder={view === 'contacts' ? '?????' : '????'}
+            placeholder={view === 'contacts' ? '搜索联系人' : '搜索会话'}
           />
         </div>
       </div>
       <div className="thin-scrollbar h-[calc(100dvh-181px)] overflow-y-auto lg:h-[calc(100vh-125px)]">
         {list.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-wx-muted">
-            {view === 'contacts' ? '??????' : '???????'}
+            {view === 'contacts' ? '还没有联系人' : '还没有聊天记录'}
           </div>
         ) : (
           list.map((agent) => (
@@ -418,14 +418,14 @@ function ConversationList({
                   </span>
                 </div>
                 <p className={`mt-1 truncate text-[13px] ${selectedId === agent.id ? 'text-white/90' : 'text-wx-muted'}`}>
-                  {agent.lastMessage?.content || agent.status || agent.group || 'AI ???'}
+                  {agent.lastMessage?.content || agent.status || agent.group || 'AI 联系人'}
                 </p>
               </div>
               <div className="hidden gap-1 group-hover:flex">
-                <MiniButton title="鍏嬮殕" onClick={(event) => { event.stopPropagation(); onClone(agent.id) }}>
+                <MiniButton title="克隆" onClick={(event) => { event.stopPropagation(); onClone(agent.id) }}>
                   <Copy size={14} />
                 </MiniButton>
-                <MiniButton title="缂栬緫" onClick={(event) => { event.stopPropagation(); onEdit(agent.id) }}>
+                <MiniButton title="编辑" onClick={(event) => { event.stopPropagation(); onEdit(agent.id) }}>
                   <Settings size={14} />
                 </MiniButton>
               </div>
@@ -459,7 +459,7 @@ function ChatPane({ agent, selfProfile, messages, isTyping, visible, onBack, onS
 
   async function addFiles(files) {
     const accepted = files.filter((file) => file.size <= MAX_FILE_BYTES)
-    if (accepted.length < files.length) window.alert('?????? 5MB?????')
+    if (accepted.length < files.length) window.alert('部分文件超过 5MB，已跳过。')
     const next = await Promise.all(accepted.map(makeAttachment))
     setAttachments((current) => [...current, ...next])
     setMenuOpen(false)
@@ -492,17 +492,17 @@ function ChatPane({ agent, selfProfile, messages, isTyping, visible, onBack, onS
           </div>
           <div className="min-w-0">
             <h2 className="absolute left-1/2 top-1/2 max-w-[58vw] -translate-x-1/2 -translate-y-1/2 truncate text-[17px] font-semibold text-wx-text lg:static lg:max-w-none lg:translate-x-0 lg:translate-y-0 lg:text-[16px] lg:font-medium">{agent.name}</h2>
-            <p className="hidden truncate text-xs text-wx-muted lg:block">{agent.status || 'AI ???'}</p>
+            <p className="hidden truncate text-xs text-wx-muted lg:block">{agent.status || 'AI 联系人'}</p>
           </div>
         </div>
-        <IconButton title="?????" onClick={onEditAgent}>
+        <IconButton title="编辑联系人" onClick={onEditAgent}>
           <Menu size={21} />
         </IconButton>
       </header>
       <section ref={listRef} className="thin-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-5 lg:px-8">
         <div className="mx-auto flex max-w-[860px] flex-col gap-5">
           {messages.length === 0 ? (
-            <div className="mt-12 text-center text-sm text-wx-muted">寮€濮嬪拰 {agent.name} 瀵硅瘽</div>
+            <div className="mt-12 text-center text-sm text-wx-muted">开始和 {agent.name} 对话</div>
           ) : (
             messages.map((message) => (
               <MessageRow
@@ -514,7 +514,7 @@ function ChatPane({ agent, selfProfile, messages, isTyping, visible, onBack, onS
               />
             ))
           )}
-          {isTyping && <div className="w-fit rounded bg-white px-3 py-2 text-sm text-wx-muted">姝ｅ湪杈撳叆...</div>}
+          {isTyping && <div className="w-fit rounded bg-white px-3 py-2 text-sm text-wx-muted">正在输入...</div>}
         </div>
       </section>
       <footer className="border-t border-wx-line bg-[#F7F7F7] px-3 py-3 lg:px-5">
@@ -536,8 +536,8 @@ function ChatPane({ agent, selfProfile, messages, isTyping, visible, onBack, onS
             </button>
             {menuOpen && (
               <div className="absolute bottom-12 left-0 w-44 rounded border border-wx-line bg-white p-1 shadow-soft">
-                <MenuItem onClick={() => imageInputRef.current?.click()}><ImagePlus size={17} />涓婁紶鍥剧墖</MenuItem>
-                <MenuItem onClick={() => fileInputRef.current?.click()}><FilePlus size={17} />涓婁紶鏂囦欢</MenuItem>
+                <MenuItem onClick={() => imageInputRef.current?.click()}><ImagePlus size={17} />上传图片</MenuItem>
+                <MenuItem onClick={() => fileInputRef.current?.click()}><FilePlus size={17} />上传文件</MenuItem>
               </div>
             )}
             <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileSelect} />
@@ -554,7 +554,7 @@ function ChatPane({ agent, selfProfile, messages, isTyping, visible, onBack, onS
               }
             }}
             rows={1}
-            placeholder="杈撳叆娑堟伅"
+            placeholder="输入消息"
             className="min-h-[42px] flex-1 resize-none rounded-md border border-wx-line bg-white px-3 py-2 text-[16px] leading-6 outline-none lg:min-h-[96px] lg:text-[14px]"
           />
           <button
@@ -612,7 +612,7 @@ function AgentEditor({ agent, onClose, onSave, onDelete }) {
     const file = event.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      window.alert('????????')
+      window.alert('请选择图片文件。')
       return
     }
     const image = await prepareAvatarImage(file)
@@ -629,14 +629,14 @@ function AgentEditor({ agent, onClose, onSave, onDelete }) {
       <section className="thin-scrollbar h-[100dvh] w-full overflow-y-auto bg-white shadow-soft lg:w-[460px]">
         <header className="sticky top-0 flex h-[64px] items-center justify-between border-b border-wx-line bg-white px-4">
           <h2 className="text-lg font-medium">编辑联系人</h2>
-          <IconButton title="鍏抽棴" onClick={onClose}><X size={20} /></IconButton>
+          <IconButton title="关闭" onClick={onClose}><X size={20} /></IconButton>
         </header>
         <div className="space-y-4 px-4 pb-24 pt-5">
           <div className="flex items-center gap-4">
             <Avatar agent={draft} large />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-wx-text">
-                {draft.name || '鏂拌仈绯讳汉'}
+                {draft.name || '新联系人'}
               </p>
               <div className="mt-2 flex gap-2">
                 <button
@@ -644,7 +644,7 @@ function AgentEditor({ agent, onClose, onSave, onDelete }) {
                   onClick={() => avatarInputRef.current?.click()}
                   className="h-9 rounded border border-wx-line px-3 text-sm hover:bg-wx-list"
                 >
-                  涓婁紶澶村儚
+                  上传头像
                 </button>
                 {draft.avatarImage && (
                   <button
@@ -672,10 +672,10 @@ function AgentEditor({ agent, onClose, onSave, onDelete }) {
             </div>
           </div>
           <Field label="鍚嶇О"><input className="input" value={draft.name} onChange={(event) => update('name', event.target.value)} /></Field>
-          <Field label="澶村儚鏂囧瓧"><input className="input" value={draft.avatar} maxLength={6} onChange={(event) => update('avatar', event.target.value)} placeholder="鏈笂浼犲ご鍍忔椂鏄剧ず" /></Field>
+          <Field label="头像文字"><input className="input" value={draft.avatar} maxLength={6} onChange={(event) => update('avatar', event.target.value)} placeholder="未上传头像时显示" /></Field>
           <Field label="鍒嗙粍"><input className="input" value={draft.group} onChange={(event) => update('group', event.target.value)} /></Field>
-          <Field label="??"><input className="input" value={draft.status} onChange={(event) => update('status', event.target.value)} /></Field>
-          <Field label="鍗曠嫭妯″瀷"><input className="input" value={draft.model} onChange={(event) => update('model', event.target.value)} placeholder="鐣欑┖浣跨敤鍏ㄥ眬妯″瀷" /></Field>
+          <Field label="状态"><input className="input" value={draft.status} onChange={(event) => update('status', event.target.value)} /></Field>
+          <Field label="单独模型"><input className="input" value={draft.model} onChange={(event) => update('model', event.target.value)} placeholder="留空使用全局模型" /></Field>
           <Field label="System Prompt">
             <textarea className="min-h-40 w-full resize-y rounded border border-wx-line px-3 py-2 text-[16px] leading-6 outline-none lg:text-[14px]" value={draft.systemPrompt} onChange={(event) => update('systemPrompt', event.target.value)} />
           </Field>
@@ -697,7 +697,7 @@ function SettingsPanel({ open, settings, onChange, onClose, onExport, onImport }
     const file = event.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      window.alert('????????')
+      window.alert('请选择图片文件。')
       event.target.value = ''
       return
     }
@@ -715,15 +715,15 @@ function SettingsPanel({ open, settings, onChange, onClose, onExport, onImport }
     try {
       onImport(JSON.parse(await file.text()))
     } catch {
-      window.alert('?????????? JSON?')
+      window.alert('导入失败：请选择有效 JSON。')
     }
   }
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-black/20">
       <section className="thin-scrollbar h-[100dvh] w-full overflow-y-auto bg-white shadow-soft lg:w-[420px]">
         <header className="sticky top-0 flex h-[64px] items-center justify-between border-b border-wx-line bg-white px-4">
-          <h2 className="text-lg font-medium">璁剧疆</h2>
-          <IconButton title="鍏抽棴" onClick={onClose}><X size={20} /></IconButton>
+          <h2 className="text-lg font-medium">设置</h2>
+          <IconButton title="关闭" onClick={onClose}><X size={20} /></IconButton>
         </header>
         <div className="space-y-4 px-4 py-5">
           <button
@@ -758,7 +758,7 @@ function SettingsPanel({ open, settings, onChange, onClose, onExport, onImport }
                 />
                 <div className="mt-2 flex gap-2">
                   <button type="button" onClick={() => avatarInputRef.current?.click()} className="h-9 rounded border border-wx-line px-3 text-sm hover:bg-wx-list">
-                    涓婁紶澶村儚
+                    上传头像
                   </button>
                   {settings.userAvatarImage && (
                     <button
@@ -779,8 +779,8 @@ function SettingsPanel({ open, settings, onChange, onClose, onExport, onImport }
           <Field label="API Key"><input type="password" className="input" value={settings.apiKey} onChange={(e) => onChange({ ...settings, apiKey: e.target.value })} /></Field>
           <Field label="Model"><input className="input" value={settings.model} onChange={(e) => onChange({ ...settings, model: e.target.value })} /></Field>
           <div className="grid grid-cols-2 gap-2 pt-2">
-            <button type="button" onClick={onExport} className="flex h-10 items-center justify-center gap-2 rounded border border-wx-line"><Download size={17} />瀵煎嚭</button>
-            <button type="button" onClick={() => inputRef.current?.click()} className="flex h-10 items-center justify-center gap-2 rounded border border-wx-line"><Upload size={17} />瀵煎叆</button>
+            <button type="button" onClick={onExport} className="flex h-10 items-center justify-center gap-2 rounded border border-wx-line"><Download size={17} />导出</button>
+            <button type="button" onClick={() => inputRef.current?.click()} className="flex h-10 items-center justify-center gap-2 rounded border border-wx-line"><Upload size={17} />导入</button>
           </div>
           <input ref={inputRef} type="file" accept=".json,application/json" className="hidden" onChange={importFile} />
         </div>
@@ -833,7 +833,7 @@ function Avatar({ agent, small = false, large = false }) {
       {agent.avatarImage ? (
         <img
           src={agent.avatarImage}
-          alt={agent.name || '澶村儚'}
+          alt={agent.name || '头像'}
           className="h-full w-full object-cover"
         />
       ) : (
@@ -860,17 +860,17 @@ function Field({ label, children }) {
 }
 
 async function requestChatCompletion({ settings, agent, history, input }) {
-  if (!settings.apiKey.trim()) throw new Error('???? API Key?')
-  if (!settings.baseUrl.trim()) throw new Error('???? Base URL?')
-  if (!settings.model.trim() && !agent.model.trim()) throw new Error('????????')
+  if (!settings.apiKey.trim()) throw new Error('请先填写 API Key。')
+  if (!settings.baseUrl.trim()) throw new Error('请先填写 Base URL。')
+  if (!settings.model.trim() && !agent.model.trim()) throw new Error('请先填写模型名。')
 
   const endpoint = `${settings.baseUrl.replace(/\/+$/, '')}/chat/completions`
   const messages = [
-    { role: 'system', content: agent.systemPrompt || '?????????? AI ???' },
+    { role: 'system', content: agent.systemPrompt || '你是一个简洁、自然的 AI 助手。' },
     ...history
       .filter((message) => message.role === 'user' || message.role === 'assistant')
       .slice(-12)
-      .map((message) => ({ role: message.role, content: message.content || '[闄勪欢娑堟伅]' })),
+      .map((message) => ({ role: message.role, content: message.content || '[附件消息]' })),
     { role: 'user', content: toUserContent(input) }
   ]
   const response = await fetch(endpoint, {
@@ -883,7 +883,7 @@ async function requestChatCompletion({ settings, agent, history, input }) {
   })
   const data = await response.json().catch(() => null)
   if (!response.ok) throw new Error(data?.error?.message || data?.message || `HTTP ${response.status}`)
-  return data?.choices?.[0]?.message?.content?.trim() || '?????'
+  return data?.choices?.[0]?.message?.content?.trim() || '响应为空。'
 }
 
 function toUserContent(input) {
@@ -980,11 +980,11 @@ function readAsDataUrl(blob) {
 function makeAgent(overrides = {}) {
   return {
     id: overrides.id || crypto.randomUUID(),
-    name: overrides.name || '鏂拌仈绯讳汉',
+    name: overrides.name || '新联系人',
     avatar: overrides.avatar || 'AI',
     avatarImage: overrides.avatarImage || '',
     avatarImageSize: overrides.avatarImageSize || 0,
-    group: overrides.group || '榛樿',
+    group: overrides.group || '默认',
     status: overrides.status || '',
     model: overrides.model || '',
     systemPrompt: overrides.systemPrompt || '',

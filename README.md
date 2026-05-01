@@ -1,88 +1,132 @@
-# Local AI Talk Client
+# Local AI Talk
 
-一个本地运行的 React + Vite + Tailwind AI 聊天客户端壳子。界面UI参考 韩国通讯软件KKT的Windows桌面端的三栏布局和冷静配色逻辑：左侧浅灰功能栏、中间白色联系人列表、右侧雾蓝聊天区、用户黄色气泡、AI 白色气泡。
+一个本地优先的 AI 聊天客户端，使用 React + Vite + Tailwind 构建。
+
+项目现在包含两套界面风格：
+
+- KKT 风格：参考桌面聊天软件的三栏布局、浅灰侧栏、白色列表、雾蓝聊天背景、黄色用户气泡。
+- 微信风格：参考微信桌面端 / 移动端的绿色会话高亮、浅灰聊天区、底部输入栏和移动端底部导航。
+
+两套 UI 共用同一份本地数据。联系人、聊天记录、头像、API 设置、附件等会优先保存在浏览器 IndexedDB 中，并保留 JSON 导入 / 导出能力。
 
 ## 界面预览
 
-### 桌面端
-
-![桌面端预览-1](docs/images/desktop-preview.png)
-![桌面端预览-2](docs/images/desktop-preview-1.png)
-
-### 手机端
-
-![手机端预览](docs/images/mobile-preview.png)
 
 
-## 安装依赖
+### KKT 风格
+
+![KKT 桌面端预览-1](docs/images/kkt-desktop-preview.png)
+![KKT 桌面端预览-1](docs/images/kkt-desktop-preview-1.png)
+![KKT 手机端预览](docs/images/kkt-mobile-preview.png)
+
+### 微信风格
+
+![微信风格桌面端预览](docs/images/wechat-desktop-preview.png)
+
+![微信风格手机端预览](docs/images/wechat-mobile-preview.png)
+
+## 本地运行
+
+先安装依赖：
 
 ```bash
 npm install
 ```
 
-## 本地运行
+运行 KKT 风格：
 
 ```bash
 npm run dev
 ```
 
-浏览器打开 Vite 输出的本地地址，通常是：
+打开：
 
 ```text
 http://localhost:5173
 ```
 
-## 桌面软件模式
-
-安装 Electron 相关依赖后，可以直接用桌面窗口运行：
+运行微信风格：
 
 ```bash
-npm run desktop
+cd wechat-style-ai-chat
+npm install
+npm run dev
 ```
 
-这个命令会自动启动 Vite，然后打开一个桌面软件窗口。
-
-也可以预览构建后的桌面版本：
-
-```bash
-npm run desktop:preview
-```
-
-## 打包 Windows 安装包
-
-```bash
-npm run dist:desktop
-```
-
-打包完成后，安装包会输出到：
+打开：
 
 ```text
-release/
+http://localhost:5174
+```
+
+注意：本地开发时 `5173` 和 `5174` 是不同端口，浏览器会把它们当作不同网站，所以本地预览时数据不一定共享。部署到 GitHub Pages 后，两套 UI 在同一个域名下，才会共用 IndexedDB 数据。
+
+## GitHub Pages 地址
+
+部署后访问：
+
+```text
+https://tlsdid.github.io/local-ai-talk/
+```
+
+微信风格访问：
+
+```text
+https://tlsdid.github.io/local-ai-talk/wechat/
 ```
 
 ## 部署到 GitHub Pages
 
-项目已包含 `.github/workflows/deploy.yml`。推送到 GitHub 的 `main` 分支后，GitHub Actions 会自动构建并发布到 GitHub Pages。
+项目已经包含：
 
-部署前不要把自己的 API Key 写进代码。API Key 应该继续在网页设置里手动填写，并保存在当前浏览器本地。
-
-## 构建
-
-```bash
-npm run build
+```text
+.github/workflows/deploy.yml
 ```
 
-## API 填写方式
+把源码上传到 GitHub 后，GitHub Actions 会自动构建并发布两个页面：
 
-打开左侧底部设置按钮，填写全局 API 设置：
+- 根路径：KKT 风格
+- `/wechat/`：微信风格
 
-- Provider Name：服务商名称，例如 `AiHubMix`
-- API Type：`OpenAI Compatible Chat Completions`
-- Base URL：服务商提供的 OpenAI Compatible 地址，例如 `https://aihubmix.com/v1`
-- Model：服务商支持的模型名
-- API Key：填写你自己的 key
+上传时需要包含：
 
-请求地址会自动拼接为：
+- `.github/workflows/deploy.yml`
+- `src/`
+- `public/`
+- `wechat-style-ai-chat/`
+- `index.html`
+- `package.json`
+- `package-lock.json`
+- `postcss.config.js`
+- `tailwind.config.js`
+- `vite.config.js`
+- `README.md`
+
+不要上传：
+
+- `node_modules/`
+- `dist/`
+
+## API 设置
+
+目前支持：
+
+```text
+OpenAI Compatible Chat Completions
+```
+
+这不代表只能使用 OpenAI 官方接口。只要服务商兼容 OpenAI Chat Completions 格式，就可以填写使用，例如 AiHubMix、OpenRouter、硅基流动、DeepSeek 兼容接口等。
+
+填写示例：
+
+```text
+Provider Name: AiHubMix
+Base URL: https://aihubmix.com/v1
+Model: gpt-4.1-free
+API Key: 使用你自己的 key
+```
+
+实际请求地址会自动拼接为：
 
 ```text
 {Base URL 去掉末尾斜杠}/chat/completions
@@ -94,31 +138,85 @@ npm run build
 https://aihubmix.com/v1/chat/completions
 ```
 
-## 本地数据
+## 联系人与人设
 
-- 全局 API 设置保存在 `localStorage`。
-- 联系人配置保存在 `localStorage`。
-- 聊天记录按联系人 id 单独保存在 `localStorage`。
-- 图片和文件附件会以本地 data URL 的形式保存在对应聊天记录里。
-- 图片会按 OpenAI Chat Completions 的 `image_url` 多模态格式发送给模型。
-- `.txt`、`.md`、`.json`、`.py`、`.js`、`.html`、`.css` 等文本/代码文件会读取正文并随消息发送给模型。
-- PDF 会通过 `pdfjs-dist` 在前端提取文本，并随消息发送给模型。
-- `.docx` 会通过 `mammoth` 在前端提取文本，并随消息发送给模型。
-- 旧版 `.doc` 暂不支持解析，请另存为 `.docx` 后上传。
-- 默认不内置联系人，首次使用需要用户自行新增联系人和 system prompt。
-- 联系人可以新增、编辑、克隆、删除。
-- 每个联系人可以使用全局 API 配置，也可以启用单独 API 配置。
-- 联系人单独模型优先于全局模型；启用联系人单独 API 配置后，会优先使用联系人自己的 Provider、Base URL、API Key、Model。
-- 可以在全局设置里导出/导入 JSON 备份，用于迁移联系人、设置、聊天记录和本地附件。
+联系人支持：
 
-## 常用入口
+- 新增联系人
+- 编辑联系人名称、头像、状态、分组、模型、人设 prompt
+- 克隆联系人
+- 删除联系人
+- 每个联系人独立聊天记录
+- 每个联系人独立 system prompt
+- 联系人可使用全局 API 设置，也可以以后扩展为独立 API 设置
 
-- 输入框左侧 `+`：上传图片或文件附件；图片可让支持视觉的模型识别，文本/代码文件会随消息发送。
-- 消息气泡 hover 后的删除按钮：删除单条聊天记录。
-- 聊天顶部搜索：搜索当前联系人的聊天记录。
-- 联系人列表顶部搜索：搜索联系人、人设和最近消息。
-- 左侧好友页：按分组查看联系人和人设摘要。
-- 左侧聊天页：按最近消息查看会话列表。
-- 聊天顶部菜单：编辑当前联系人。
-- 左侧通知/更多：打开通知和更多面板。
-- 设置面板底部：导出 JSON / 导入 JSON。
+默认不强制内置联系人。你可以根据自己的使用习惯创建联系人和人设。
+
+## 附件与图片
+
+聊天支持：
+
+- 上传图片
+- 上传普通附件
+- 电脑端粘贴图片 / 文件到输入框
+- 删除单条聊天记录
+- 图片作为 `image_url` 发给支持视觉能力的模型
+- 文本、代码类文件会读取正文后随消息发送
+
+为减少手机端白屏风险，图片会在前端压缩后再保存。头像也会压缩为小图保存。
+
+## 本地存储
+
+当前数据优先保存在浏览器 IndexedDB：
+
+- 全局 API 设置
+- 联系人配置
+- 聊天记录
+- 头像
+- 本地附件数据
+
+IndexedDB 比 localStorage 更适合保存聊天记录、图片和附件，容量通常更大，也更稳定。
+
+但 IndexedDB 仍然是本机 / 本浏览器存储，不是云同步。换手机、换浏览器、清理网站数据后，数据不会自动回来。
+
+## 导入与导出
+
+设置面板中可以导出 JSON 备份，也可以导入 JSON 恢复数据。
+
+导出内容包含：
+
+- API 设置
+- 联系人
+- 人设 prompt
+- 聊天记录
+- 头像
+- 本地附件
+
+IndexedDB 不影响导出格式。导出的仍然是普通 JSON 文件。
+
+## 桌面软件模式
+
+如果安装了 Electron 相关依赖，可以运行：
+
+```bash
+npm run desktop
+```
+
+打包 Windows 安装包：
+
+```bash
+npm run dist:desktop
+```
+
+打包结果输出到：
+
+```text
+release/
+```
+
+## 注意事项
+
+- API Key 不要写进代码，也不要提交到 GitHub。
+- GitHub Pages 是静态网页，不会把你的本地聊天记录上传到 GitHub。
+- 如果需要像 ChatGPT 那样跨设备长期同步，需要额外搭建后端、数据库和文件存储。
+- 当前方案适合本地优先、自用、可导入导出的 AI 聊天客户端。
