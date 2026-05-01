@@ -16,7 +16,8 @@ export const defaultSettings = {
   baseUrl: '',
   apiKey: '',
   model: '',
-  apiType: 'openai-compatible'
+  apiType: 'openai-compatible',
+  requestMode: 'auto'
 }
 
 export function loadSettings() {
@@ -136,6 +137,7 @@ export function makeAgent(overrides = {}) {
       enabled: false,
       providerName: '',
       apiType: 'openai-compatible',
+      requestMode: 'auto',
       baseUrl: '',
       apiKey: '',
       model: ''
@@ -160,6 +162,7 @@ function normalizeAgent(agent) {
       enabled: Boolean(agent.apiConfig?.enabled),
       providerName: agent.apiConfig?.providerName || '',
       apiType: agent.apiConfig?.apiType || 'openai-compatible',
+      requestMode: agent.apiConfig?.requestMode || 'auto',
       baseUrl: agent.apiConfig?.baseUrl || '',
       apiKey: agent.apiConfig?.apiKey || '',
       model: agent.apiConfig?.model || ''

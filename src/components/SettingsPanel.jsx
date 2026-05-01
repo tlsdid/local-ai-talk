@@ -9,6 +9,21 @@ const apiTypes = [
   }
 ]
 
+const requestModes = [
+  {
+    value: 'auto',
+    label: '自动选择：本地用代理，GitHub 网页用直连'
+  },
+  {
+    value: 'direct',
+    label: '浏览器直连：适合支持 CORS 的服务商'
+  },
+  {
+    value: 'proxy',
+    label: '本地代理：适合 NVIDIA 等会被 CORS 拦截的服务商'
+  }
+]
+
 export default function SettingsPanel({
   open,
   settings,
@@ -64,7 +79,7 @@ export default function SettingsPanel({
               Global API Settings
             </h2>
             <p className="mt-1 text-xs text-kakao-muted">
-              全局配置会保存在 localStorage
+              全局配置会保存在本地浏览器存储里
             </p>
           </div>
           <button
@@ -172,6 +187,22 @@ export default function SettingsPanel({
               {apiTypes.map((type) => (
                 <option key={type.value} value={type.value}>
                   {type.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Request Mode">
+            <select
+              value={settings.requestMode || 'auto'}
+              onChange={(event) =>
+                onChange({ ...settings, requestMode: event.target.value })
+              }
+              className="input bg-white"
+            >
+              {requestModes.map((mode) => (
+                <option key={mode.value} value={mode.value}>
+                  {mode.label}
                 </option>
               ))}
             </select>

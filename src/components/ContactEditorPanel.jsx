@@ -10,6 +10,21 @@ const apiTypes = [
   }
 ]
 
+const requestModes = [
+  {
+    value: 'auto',
+    label: '自动选择：本地用代理，GitHub 网页用直连'
+  },
+  {
+    value: 'direct',
+    label: '浏览器直连'
+  },
+  {
+    value: 'proxy',
+    label: '本地代理'
+  }
+]
+
 export default function ContactEditorPanel({
   open,
   mode,
@@ -240,6 +255,21 @@ export default function ContactEditorPanel({
                   {apiTypes.map((type) => (
                     <option key={type.value} value={type.value}>
                       {type.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Request Mode">
+                <select
+                  value={draft.apiConfig.requestMode || 'auto'}
+                  onChange={(event) =>
+                    updateApiConfig('requestMode', event.target.value)
+                  }
+                  className="input bg-white"
+                >
+                  {requestModes.map((mode) => (
+                    <option key={mode.value} value={mode.value}>
+                      {mode.label}
                     </option>
                   ))}
                 </select>

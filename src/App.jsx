@@ -233,6 +233,20 @@ export default function App() {
     }))
   }
 
+  function handleDeleteMessages(messageIds) {
+    if (!selectedAgent || messageIds.length === 0) return
+    const confirmed = window.confirm(`确定删除选中的 ${messageIds.length} 条聊天记录吗？`)
+    if (!confirmed) return
+    const idSet = new Set(messageIds)
+
+    setChats((current) => ({
+      ...current,
+      [selectedAgent.id]: (current[selectedAgent.id] || []).filter(
+        (message) => !idSet.has(message.id)
+      )
+    }))
+  }
+
   function handleSelectAgent(agentId) {
     setSelectedAgentId(agentId)
     setMobileScreen('chat')
@@ -341,6 +355,7 @@ export default function App() {
           onSend={handleSend}
           onClearChat={handleClearChat}
           onDeleteMessage={handleDeleteMessage}
+          onDeleteMessages={handleDeleteMessages}
         />
       ) : (
         <EmptyChatPanel

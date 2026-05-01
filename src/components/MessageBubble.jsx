@@ -1,6 +1,14 @@
 import { FileText, Trash2 } from 'lucide-react'
 
-export default function MessageBubble({ message, agent, selfProfile, onDelete }) {
+export default function MessageBubble({
+  message,
+  agent,
+  selfProfile,
+  onDelete,
+  selectable = false,
+  selected = false,
+  onToggleSelect
+}) {
   const isUser = message.role === 'user'
   const isError = message.role === 'error'
   const hasText = Boolean(message.content?.trim())
@@ -9,6 +17,16 @@ export default function MessageBubble({ message, agent, selfProfile, onDelete })
 
   return (
     <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
+      {selectable && (
+        <label className="mr-2 mt-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/80">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggleSelect(message.id)}
+            className="h-4 w-4 accent-kakao-yellow"
+          />
+        </label>
+      )}
       <div
         className={`group flex max-w-[82%] items-start gap-2 ${
           isUser ? 'flex-row-reverse' : 'flex-row'

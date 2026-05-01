@@ -35,7 +35,8 @@ export default function ChatWindow({
   onBack,
   onSend,
   onClearChat,
-  onDeleteMessage
+  onDeleteMessage,
+  onDeleteMessages
 }) {
   const [draft, setDraft] = useState('')
   const [attachments, setAttachments] = useState([])
@@ -44,6 +45,8 @@ export default function ChatWindow({
   const [chatQuery, setChatQuery] = useState('')
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedMessageIds, setSelectedMessageIds] = useState([])
   const listRef = useRef(null)
   const dateRefs = useRef({})
   const textareaRef = useRef(null)
@@ -91,6 +94,8 @@ export default function ChatWindow({
     setChatSearchOpen(false)
     setChatQuery('')
     setCalendarOpen(false)
+    setSelectMode(false)
+    setSelectedMessageIds([])
     textareaRef.current?.focus()
   }, [agent.id])
 
@@ -169,6 +174,21 @@ export default function ChatWindow({
     })
   }
 
+  function toggleMessageSelection(messageId) {
+    setSelectedMessageIds((current) =>
+      current.includes(messageId)
+        ? current.filter((id) => id !== messageId)
+        : [...current, messageId]
+    )
+  }
+
+  function deleteSelectedMessages() {
+    if (selectedMessageIds.length === 0) return
+    onDeleteMessages(selectedMessageIds)
+    setSelectedMessageIds([])
+    setSelectMode(false)
+  }
+
   return (
     <main
       className={`h-[100dvh] min-w-0 flex-1 flex-col bg-kakao-chat pb-[64px] lg:flex lg:pb-0 ${
@@ -224,6 +244,22 @@ export default function ChatWindow({
           <IconButton title="清空当前聊天" onClick={onClearChat} hideOnMobile>
             <Trash2 size={19} />
           </IconButton>
+          <IconButton
+            title={selectMode ? '取消多选' : '多选删除'}
+            onClick={() => {
+              setSelectMode((mode) => !mode)
+              setSelectedMessageIds([])
+            }}
+          >
+            <span className="text-xs font-semibold">{selectMode ? '取消' : '多选'}</span>
+          </IconButton>
+          {selectMode && (
+            <IconButton title="删除选中消息" onClick={deleteSelectedMessages}>
+              <span className="text-xs font-semibold text-red-600">
+                删除{selectedMessageIds.length || ''}
+              </span>
+            </IconButton>
+          )}
           <IconButton
             title="编辑当前联系人"
             onClick={() =>
@@ -299,6 +335,9 @@ export default function ChatWindow({
                       agent={agent}
                       selfProfile={selfProfile}
                       onDelete={onDeleteMessage}
+                      selectable={selectMode}
+                      selected={selectedMessageIds.includes(message.id)}
+                      onToggleSelect={toggleMessageSelection}
                     />
                   ))}
                 </div>

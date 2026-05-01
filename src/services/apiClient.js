@@ -1,5 +1,17 @@
-function trimBaseUrl(baseUrl) {
-  return baseUrl.replace(/\/+$/, '')
+const LOCAL_PROXY_URL = 'http://localhost:3001/api/chat'
+
+function isLocalHost() {
+  return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
+}
+
+function resolveRequestMode(settings) {
+  if (settings.requestMode === 'proxy') return 'proxy'
+  if (settings.requestMode === 'direct') return 'direct'
+  return isLocalHost() ? 'proxy' : 'direct'
+}
+
+function joinUrl(baseUrl, path) {
+  return `${String(baseUrl).replace(/\/+$/, '')}/${String(path).replace(/^\/+/, '')}`
 }
 
 function toOpenAiMessages(agent, history, input) {
@@ -28,44 +40,86 @@ export async function sendChatCompletion({ settings, agent, history, input }) {
     throw new Error('请先在设置里填写 API Key。')
   }
 
+  if (!effectiveSettings.baseUrl.trim()) {
+    throw new Error('请先在设置里填写 Base URL。')
+  }
+
+  if (!effectiveSettings.model.trim()) {
+    throw new Error('请先在设置里填写 Model。')
+  }
+
   if (effectiveSettings.apiType !== 'openai-compatible') {
     throw new Error('当前仅支持 OpenAI Compatible Chat Completions。')
   }
 
-  const endpoint = `${trimBaseUrl(effectiveSettings.baseUrl)}/chat/completions`
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${effectiveSettings.apiKey.trim()}`
-    },
-    body: JSON.stringify({
-      model: effectiveSettings.model.trim(),
-      messages: toOpenAiMessages(agent, history, input)
-    })
-  })
-
-  let payload = null
-  try {
-    payload = await response.json()
-  } catch {
-    payload = null
+  const messages = toOpenAiMessages(agent, history, input)
+  const requestMode = resolveRequestMode(effectiveSettings)
+  const body = {
+    model: effectiveSettings.model.trim(),
+    messages,
+    temperature: 0.7,
+    max_tokens: 1024,
+    stream: false
   }
+
+  let response
+  try {
+    if (requestMode === 'proxy') {
+      response = await fetch(LOCAL_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          baseURL: effectiveSettings.baseUrl.trim(),
+          apiKey: effectiveSettings.apiKey.trim(),
+          ...body
+        })
+      })
+    } else {
+      response = await fetch(joinUrl(effectiveSettings.baseUrl.trim(), '/chat/completions'), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${effectiveSettings.apiKey.trim()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      })
+    }
+  } catch {
+    if (requestMode === 'proxy') {
+      throw new Error('本地代理服务未启动，请先运行 npm run dev:all')
+    }
+    throw new Error('浏览器直连失败，可能是服务商 CORS 限制。NVIDIA 等接口请切换为本地代理并运行 npm run dev:all')
+  }
+
+  const payload = await readJsonResponse(response)
 
   if (!response.ok) {
-    const message =
+    throw new Error(
       payload?.error?.message ||
-      payload?.message ||
-      `请求失败：HTTP ${response.status}`
-    throw new Error(message)
+        payload?.error ||
+        payload?.message ||
+        `请求失败：HTTP ${response.status}`
+    )
   }
 
-  const content = payload?.choices?.[0]?.message?.content
+  const content =
+    requestMode === 'proxy'
+      ? payload?.content
+      : payload?.choices?.[0]?.message?.content
+
   if (!content) {
     throw new Error('请求成功，但响应里没有可显示的文本。')
   }
 
   return content.trim()
+}
+
+async function readJsonResponse(response) {
+  try {
+    return await response.json()
+  } catch {
+    return null
+  }
 }
 
 function toUserContent(input) {
@@ -162,7 +216,8 @@ function resolveSettings(settings, agent) {
       apiType: agent.apiConfig.apiType || settings.apiType,
       baseUrl: agent.apiConfig.baseUrl || settings.baseUrl,
       apiKey: agent.apiConfig.apiKey || settings.apiKey,
-      model: agent.apiConfig.model || agent.model || settings.model
+      model: agent.apiConfig.model || agent.model || settings.model,
+      requestMode: agent.apiConfig.requestMode || settings.requestMode
     }
   }
 

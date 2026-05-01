@@ -39,7 +39,8 @@ const defaultSettings = {
   apiType: 'openai-compatible',
   baseUrl: '',
   apiKey: '',
-  model: ''
+  model: '',
+  requestMode: 'auto'
 }
 
 function App() {
@@ -179,6 +180,18 @@ function App() {
     }))
   }
 
+  function deleteMessages(messageIds) {
+    if (!selectedAgent || messageIds.length === 0) return
+    if (!window.confirm(`确定删除选中的 ${messageIds.length} 条消息吗？`)) return
+    const idSet = new Set(messageIds)
+    setChats((current) => ({
+      ...current,
+      [selectedAgent.id]: (current[selectedAgent.id] || []).filter(
+        (message) => !idSet.has(message.id)
+      )
+    }))
+  }
+
   function exportData() {
     const blob = new Blob(
       [
@@ -253,6 +266,7 @@ function App() {
           onBack={() => setMobileScreen('list')}
           onSend={sendMessage}
           onDeleteMessage={deleteMessage}
+          onDeleteMessages={deleteMessages}
           onEditAgent={() => setEditorAgent(selectedAgent)}
         />
       ) : (
@@ -437,10 +451,12 @@ function ConversationList({
   )
 }
 
-function ChatPane({ agent, selfProfile, messages, isTyping, visible, onBack, onSend, onDeleteMessage, onEditAgent }) {
+function ChatPane({ agent, selfProfile, messages, isTyping, visible, onBack, onSend, onDeleteMessage, onDeleteMessages, onEditAgent }) {
   const [draft, setDraft] = useState('')
   const [attachments, setAttachments] = useState([])
   const [menuOpen, setMenuOpen] = useState(false)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedMessageIds, setSelectedMessageIds] = useState([])
   const listRef = useRef(null)
   const imageInputRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -449,12 +465,32 @@ function ChatPane({ agent, selfProfile, messages, isTyping, visible, onBack, onS
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, isTyping, agent.id])
 
+  useEffect(() => {
+    setSelectMode(false)
+    setSelectedMessageIds([])
+  }, [agent.id])
+
   function submit() {
     const content = draft.trim()
     if (!content && attachments.length === 0) return
     setDraft('')
     setAttachments([])
     onSend({ content, attachments })
+  }
+
+  function toggleMessageSelection(messageId) {
+    setSelectedMessageIds((current) =>
+      current.includes(messageId)
+        ? current.filter((id) => id !== messageId)
+        : [...current, messageId]
+    )
+  }
+
+  function deleteSelectedMessages() {
+    if (selectedMessageIds.length === 0) return
+    onDeleteMessages(selectedMessageIds)
+    setSelectedMessageIds([])
+    setSelectMode(false)
   }
 
   async function addFiles(files) {
@@ -495,9 +531,27 @@ function ChatPane({ agent, selfProfile, messages, isTyping, visible, onBack, onS
             <p className="hidden truncate text-xs text-wx-muted lg:block">{agent.status || 'AI 联系人'}</p>
           </div>
         </div>
-        <IconButton title="编辑联系人" onClick={onEditAgent}>
+        <div className="flex items-center gap-1">
+          <IconButton
+            title={selectMode ? '取消多选' : '多选删除'}
+            onClick={() => {
+              setSelectMode((mode) => !mode)
+              setSelectedMessageIds([])
+            }}
+          >
+            <span className="text-xs font-semibold">{selectMode ? '取消' : '多选'}</span>
+          </IconButton>
+          {selectMode && (
+            <IconButton title="删除选中消息" onClick={deleteSelectedMessages}>
+              <span className="text-xs font-semibold text-red-600">
+                删除{selectedMessageIds.length || ''}
+              </span>
+            </IconButton>
+          )}
+          <IconButton title="编辑联系人" onClick={onEditAgent}>
           <Menu size={21} />
-        </IconButton>
+          </IconButton>
+        </div>
       </header>
       <section ref={listRef} className="thin-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-5 lg:px-8">
         <div className="mx-auto flex max-w-[860px] flex-col gap-5">
@@ -511,6 +565,9 @@ function ChatPane({ agent, selfProfile, messages, isTyping, visible, onBack, onS
                 agent={agent}
                 selfProfile={selfProfile}
                 onDelete={onDeleteMessage}
+                selectable={selectMode}
+                selected={selectedMessageIds.includes(message.id)}
+                onToggleSelect={toggleMessageSelection}
               />
             ))
           )}
@@ -571,12 +628,30 @@ function ChatPane({ agent, selfProfile, messages, isTyping, visible, onBack, onS
   )
 }
 
-function MessageRow({ message, agent, selfProfile, onDelete }) {
+function MessageRow({
+  message,
+  agent,
+  selfProfile,
+  onDelete,
+  selectable = false,
+  selected = false,
+  onToggleSelect
+}) {
   const isUser = message.role === 'user'
   const isError = message.role === 'error'
   const speaker = isUser ? selfProfile : agent
   return (
     <div className={`group flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+      {selectable && (
+        <label className="mr-2 mt-2 flex h-7 w-7 shrink-0 items-center justify-center rounded bg-white">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggleSelect(message.id)}
+            className="h-4 w-4 accent-[#07C160]"
+          />
+        </label>
+      )}
       <div className={`flex max-w-[86%] items-start gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
         <Avatar agent={speaker} small />
         <div className={`rounded-md px-3.5 py-2.5 text-[14px] leading-6 shadow-sm ${isUser ? 'bg-wx-green' : isError ? 'bg-red-50 text-red-700' : 'bg-white'}`}>
@@ -776,6 +851,18 @@ function SettingsPanel({ open, settings, onChange, onClose, onExport, onImport }
             <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
           </div>
           <Field label="Provider Name"><input className="input" value={settings.providerName} onChange={(e) => onChange({ ...settings, providerName: e.target.value })} /></Field>
+          <Field label="API Type">
+            <select className="input bg-white" value={settings.apiType || 'openai-compatible'} onChange={(e) => onChange({ ...settings, apiType: e.target.value })}>
+              <option value="openai-compatible">OpenAI Compatible Chat Completions</option>
+            </select>
+          </Field>
+          <Field label="Request Mode">
+            <select className="input bg-white" value={settings.requestMode || 'auto'} onChange={(e) => onChange({ ...settings, requestMode: e.target.value })}>
+              <option value="auto">自动选择：本地用代理，GitHub 网页用直连</option>
+              <option value="direct">浏览器直连：适合支持 CORS 的服务商</option>
+              <option value="proxy">本地代理：适合 NVIDIA 等会被 CORS 拦截的服务商</option>
+            </select>
+          </Field>
           <Field label="Base URL"><input className="input" value={settings.baseUrl} onChange={(e) => onChange({ ...settings, baseUrl: e.target.value })} /></Field>
           <Field label="API Key"><input type="password" className="input" value={settings.apiKey} onChange={(e) => onChange({ ...settings, apiKey: e.target.value })} /></Field>
           <Field label="Model"><input className="input" value={settings.model} onChange={(e) => onChange({ ...settings, model: e.target.value })} /></Field>
@@ -864,8 +951,10 @@ async function requestChatCompletion({ settings, agent, history, input }) {
   if (!settings.apiKey.trim()) throw new Error('请先填写 API Key。')
   if (!settings.baseUrl.trim()) throw new Error('请先填写 Base URL。')
   if (!settings.model.trim() && !agent.model.trim()) throw new Error('请先填写模型名。')
+  if ((settings.apiType || 'openai-compatible') !== 'openai-compatible') {
+    throw new Error('当前仅支持 OpenAI Compatible Chat Completions。')
+  }
 
-  const endpoint = `${settings.baseUrl.replace(/\/+$/, '')}/chat/completions`
   const messages = [
     { role: 'system', content: agent.systemPrompt || '你是一个简洁、自然的 AI 助手。' },
     ...history
@@ -874,17 +963,65 @@ async function requestChatCompletion({ settings, agent, history, input }) {
       .map((message) => ({ role: message.role, content: message.content || '[附件消息]' })),
     { role: 'user', content: toUserContent(input) }
   ]
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${settings.apiKey.trim()}`
-    },
-    body: JSON.stringify({ model: agent.model || settings.model, messages })
-  })
+  const requestMode = resolveRequestMode(settings)
+  const body = {
+    model: agent.model || settings.model,
+    messages,
+    temperature: 0.7,
+    max_tokens: 1024,
+    stream: false
+  }
+
+  let response
+  try {
+    if (requestMode === 'proxy') {
+      response = await fetch('http://localhost:3001/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          baseURL: settings.baseUrl.trim(),
+          apiKey: settings.apiKey.trim(),
+          ...body
+        })
+      })
+    } else {
+      response = await fetch(joinUrl(settings.baseUrl.trim(), '/chat/completions'), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${settings.apiKey.trim()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      })
+    }
+  } catch {
+    if (requestMode === 'proxy') {
+      throw new Error('本地代理服务未启动，请先运行 npm run dev:all')
+    }
+    throw new Error('浏览器直连失败，可能是服务商 CORS 限制。NVIDIA 等接口请切换为本地代理并运行 npm run dev:all')
+  }
+
   const data = await response.json().catch(() => null)
-  if (!response.ok) throw new Error(data?.error?.message || data?.message || `HTTP ${response.status}`)
-  return data?.choices?.[0]?.message?.content?.trim() || '响应为空。'
+  if (!response.ok) {
+    throw new Error(data?.error?.message || data?.error || data?.message || `HTTP ${response.status}`)
+  }
+
+  const content = requestMode === 'proxy'
+    ? data?.content
+    : data?.choices?.[0]?.message?.content
+  return content?.trim() || '响应为空。'
+}
+
+function resolveRequestMode(settings) {
+  if (settings.requestMode === 'proxy') return 'proxy'
+  if (settings.requestMode === 'direct') return 'direct'
+  return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
+    ? 'proxy'
+    : 'direct'
+}
+
+function joinUrl(baseUrl, path) {
+  return `${String(baseUrl).replace(/\/+$/, '')}/${String(path).replace(/^\/+/, '')}`
 }
 
 function toUserContent(input) {
