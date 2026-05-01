@@ -29,13 +29,28 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install dependencies
+      - name: Install desktop dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Build
+      - name: Build KakaoTalk-style app
         env:
           VITE_BASE_PATH: /local-ai-talk/
         run: npm run build
+
+      - name: Install WeChat-style dependencies
+        working-directory: wechat-style-ai-chat
+        run: npm install --no-audit --no-fund
+
+      - name: Build WeChat-style app
+        working-directory: wechat-style-ai-chat
+        env:
+          VITE_BASE_PATH: /local-ai-talk/wechat/
+        run: npm run build
+
+      - name: Add WeChat-style app to Pages artifact
+        run: |
+          mkdir -p dist/wechat
+          cp -r wechat-style-ai-chat/dist/* dist/wechat/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
