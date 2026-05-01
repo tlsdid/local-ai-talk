@@ -51,7 +51,7 @@ export default function MessageBubble({
           )}
           {hasText && (
             <div className="whitespace-pre-wrap break-words">
-              {message.content}
+              <LinkedText text={message.content} />
             </div>
           )}
         </div>
@@ -70,6 +70,31 @@ export default function MessageBubble({
       </div>
     </div>
   )
+}
+
+function LinkedText({ text }) {
+  const parts = String(text || '').split(/(https?:\/\/[^\s<>"']+)/g)
+
+  return parts.map((part, index) => {
+    if (!/^https?:\/\//i.test(part)) return part
+
+    const url = part.replace(/[)\]}>，。；;、]+$/g, '')
+    const suffix = part.slice(url.length)
+
+    return (
+      <span key={`${url}-${index}`}>
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="text-blue-600 underline underline-offset-2 hover:text-blue-700"
+        >
+          {url}
+        </a>
+        {suffix}
+      </span>
+    )
+  })
 }
 
 function AvatarBadge({ profile }) {

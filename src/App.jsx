@@ -8,6 +8,10 @@ import SettingsPanel from './components/SettingsPanel.jsx'
 import { defaultAgentMap } from './data/agents.js'
 import { sendChatCompletion } from './services/apiClient.js'
 import {
+  isResourceSearchAgent,
+  searchResources
+} from './services/resourceSearch.js'
+import {
   loadAgents,
   loadChats,
   loadPersistedData,
@@ -192,15 +196,17 @@ export default function App() {
     setTypingAgentId(agentId)
 
     try {
-      const reply = await sendChatCompletion({
-        settings,
-        agent: selectedAgent,
-        history,
-        input: {
-          content,
-          attachments
-        }
-      })
+      const reply = isResourceSearchAgent(selectedAgent)
+        ? await searchResources(content)
+        : await sendChatCompletion({
+            settings,
+            agent: selectedAgent,
+            history,
+            input: {
+              content,
+              attachments
+            }
+          })
       appendMessage(agentId, makeMessage('assistant', reply))
     } catch (error) {
       appendMessage(

@@ -1,4 +1,4 @@
-import { defaultAgents } from '../data/agents.js'
+import { defaultAgents, resourceSearchAgent } from '../data/agents.js'
 
 const SETTINGS_KEY = 'local-ai-talk-settings'
 const CHATS_KEY = 'local-ai-talk-chats'
@@ -53,9 +53,11 @@ export function loadAgents() {
   try {
     const raw = localStorage.getItem(AGENTS_KEY)
     const savedAgents = raw ? JSON.parse(raw) : null
-    return Array.isArray(savedAgents)
-      ? savedAgents.map(normalizeAgent)
-      : defaultAgents.map(normalizeAgent)
+    return ensureBuiltInAgents(
+      Array.isArray(savedAgents)
+        ? savedAgents.map(normalizeAgent)
+        : defaultAgents.map(normalizeAgent)
+    )
   } catch {
     return defaultAgents.map(normalizeAgent)
   }
@@ -124,7 +126,7 @@ export async function loadPersistedData() {
     apiType: normalizeApiType(storedSettings.apiType)
   }
   const nextAgents = Array.isArray(agents)
-    ? agents.map(normalizeAgent)
+    ? ensureBuiltInAgents(agents.map(normalizeAgent))
     : loadAgents()
   const nextChats = chats && typeof chats === 'object' ? chats : loadChats()
 
@@ -152,6 +154,7 @@ export function makeMessage(role, content, meta = {}) {
 export function makeAgent(overrides = {}) {
   return normalizeAgent({
     id: crypto.randomUUID(),
+    type: 'chat',
     name: '新联系人',
     group: '自定义',
     status: '自定义 AI 联系人',
@@ -177,6 +180,7 @@ export function makeAgent(overrides = {}) {
 function normalizeAgent(agent) {
   return {
     id: agent.id || crypto.randomUUID(),
+    type: agent.type || 'chat',
     name: agent.name || '未命名联系人',
     group: agent.group || '默认',
     status: agent.status || '',
@@ -196,6 +200,12 @@ function normalizeAgent(agent) {
       model: agent.apiConfig?.model || ''
     }
   }
+}
+
+function ensureBuiltInAgents(agents) {
+  const list = Array.isArray(agents) ? agents : []
+  if (list.some((agent) => agent.id === resourceSearchAgent.id)) return list
+  return [normalizeAgent(resourceSearchAgent), ...list]
 }
 
 function openDb() {
