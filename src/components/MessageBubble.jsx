@@ -1,18 +1,20 @@
 import { FileText, Trash2 } from 'lucide-react'
 
-export default function MessageBubble({ message, onDelete }) {
+export default function MessageBubble({ message, agent, selfProfile, onDelete }) {
   const isUser = message.role === 'user'
   const isError = message.role === 'error'
   const hasText = Boolean(message.content?.trim())
   const attachments = message.attachments || []
+  const speaker = isUser ? selfProfile : agent
 
   return (
     <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`group flex max-w-[72%] items-end gap-2 ${
+        className={`group flex max-w-[82%] items-start gap-2 ${
           isUser ? 'flex-row-reverse' : 'flex-row'
         }`}
       >
+        <AvatarBadge profile={speaker} />
         <div
           className={`min-w-0 rounded-[7px] px-3.5 py-2.5 text-[14px] leading-6 shadow-bubble ${
             isUser
@@ -48,6 +50,25 @@ export default function MessageBubble({ message, onDelete }) {
           <Trash2 size={14} />
         </button>
       </div>
+    </div>
+  )
+}
+
+function AvatarBadge({ profile }) {
+  return (
+    <div
+      className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-[12px] text-xs font-semibold text-white"
+      style={{ backgroundColor: profile?.accent || '#8CA6C8' }}
+    >
+      {profile?.avatarImage ? (
+        <img
+          src={profile.avatarImage}
+          alt={profile.name || 'avatar'}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        profile?.avatar || profile?.name?.[0] || 'AI'
+      )}
     </div>
   )
 }

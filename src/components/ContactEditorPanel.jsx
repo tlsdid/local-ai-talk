@@ -1,6 +1,7 @@
 import { RotateCcw, Trash2, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { defaultAgentMap } from '../data/agents.js'
+import { prepareAvatarImage } from '../utils/avatarImage.js'
 
 const apiTypes = [
   {
@@ -19,6 +20,7 @@ export default function ContactEditorPanel({
   onRestoreDefault
 }) {
   const [draft, setDraft] = useState(agent)
+  const avatarInputRef = useRef(null)
   const hasDefault = Boolean(defaultAgentMap[agent?.id])
 
   useEffect(() => {
@@ -39,6 +41,24 @@ export default function ContactEditorPanel({
         [field]: value
       }
     }))
+  }
+
+  async function handleAvatarUpload(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      window.alert('请选择图片文件。')
+      event.target.value = ''
+      return
+    }
+
+    const image = await prepareAvatarImage(file)
+    setDraft((current) => ({
+      ...current,
+      avatarImage: image.dataUrl,
+      avatarImageSize: image.size
+    }))
+    event.target.value = ''
   }
 
   return (
@@ -67,12 +87,51 @@ export default function ContactEditorPanel({
         <div className="space-y-5 px-4 pb-28 pt-5 lg:px-6 lg:pb-6 lg:pt-6">
           <div className="flex items-center gap-4">
             <div
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] text-sm font-semibold text-white"
+              className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[20px] text-sm font-semibold text-white"
               style={{ backgroundColor: draft.accent }}
             >
-              {draft.avatar || 'AI'}
+              {draft.avatarImage ? (
+                <img
+                  src={draft.avatarImage}
+                  alt={draft.name || 'avatar'}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                draft.avatar || 'AI'
+              )}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
+              <div className="mb-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  className="h-9 rounded-md border border-kakao-line px-3 text-sm text-kakao-text transition hover:bg-kakao-section"
+                >
+                  上传头像
+                </button>
+                {draft.avatarImage && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDraft((current) => ({
+                        ...current,
+                        avatarImage: '',
+                        avatarImageSize: 0
+                      }))
+                    }
+                    className="h-9 rounded-md border border-red-200 px-3 text-sm text-red-600 transition hover:bg-red-50"
+                  >
+                    移除头像
+                  </button>
+                )}
+              </div>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
               <p className="truncate text-sm font-semibold text-kakao-text">
                 {draft.name || '未命名联系人'}
               </p>

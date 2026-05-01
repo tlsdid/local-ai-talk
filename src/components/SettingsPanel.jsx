@@ -1,5 +1,6 @@
 import { Download, Upload, X } from 'lucide-react'
 import { useRef } from 'react'
+import { prepareAvatarImage } from '../utils/avatarImage.js'
 
 const apiTypes = [
   {
@@ -18,8 +19,27 @@ export default function SettingsPanel({
   onImportData
 }) {
   const importInputRef = useRef(null)
+  const avatarInputRef = useRef(null)
 
   if (!open) return null
+
+  async function handleAvatarUpload(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      window.alert('请选择图片文件。')
+      event.target.value = ''
+      return
+    }
+
+    const image = await prepareAvatarImage(file)
+    onChange({
+      ...settings,
+      userAvatarImage: image.dataUrl,
+      userAvatarImageSize: image.size
+    })
+    event.target.value = ''
+  }
 
   async function handleImportFile(event) {
     const file = event.target.files?.[0]
@@ -59,6 +79,78 @@ export default function SettingsPanel({
         </div>
 
         <div className="space-y-5 px-4 pb-8 pt-5 lg:px-6 lg:py-6">
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = window.location.hostname === 'localhost'
+                ? 'http://localhost:5174'
+                : new URL('wechat/', window.location.href).href
+            }}
+            className="h-10 w-full rounded-md border border-kakao-line text-sm font-semibold text-kakao-text transition hover:bg-kakao-section"
+          >
+            切换到微信风格
+          </button>
+
+          <div className="rounded-md border border-kakao-line p-4">
+            <p className="mb-3 text-sm font-semibold text-kakao-text">
+              我的资料
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[20px] bg-kakao-yellow text-sm font-semibold text-kakao-text">
+                {settings.userAvatarImage ? (
+                  <img
+                    src={settings.userAvatarImage}
+                    alt={settings.userName || '我的头像'}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  settings.userName?.[0] || '我'
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <input
+                  value={settings.userName || ''}
+                  onChange={(event) =>
+                    onChange({ ...settings, userName: event.target.value })
+                  }
+                  placeholder="我的昵称"
+                  className="input"
+                />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="h-9 rounded-md border border-kakao-line px-3 text-sm text-kakao-text transition hover:bg-kakao-section"
+                  >
+                    上传头像
+                  </button>
+                  {settings.userAvatarImage && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onChange({
+                          ...settings,
+                          userAvatarImage: '',
+                          userAvatarImageSize: 0
+                        })
+                      }
+                      className="h-9 rounded-md border border-red-200 px-3 text-sm text-red-600 transition hover:bg-red-50"
+                    >
+                      移除头像
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              className="hidden"
+            />
+          </div>
+
           <Field label="Provider Name">
             <input
               value={settings.providerName}

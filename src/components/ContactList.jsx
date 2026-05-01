@@ -239,10 +239,18 @@ function AgentRow({
       }`}
     >
       <div
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] text-sm font-semibold text-white"
+        className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[18px] text-sm font-semibold text-white"
         style={{ backgroundColor: agent.accent }}
       >
-        {agent.avatar}
+        {agent.avatarImage ? (
+          <img
+            src={agent.avatarImage}
+            alt={agent.name}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          agent.avatar
+        )}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-3">

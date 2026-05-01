@@ -28,6 +28,7 @@ const IMAGE_JPEG_QUALITY = 0.9
 
 export default function ChatWindow({
   agent,
+  selfProfile,
   messages,
   isTyping,
   mobileVisible,
@@ -186,10 +187,18 @@ export default function ChatWindow({
             <ArrowLeft size={21} />
           </button>
           <div
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[15px] text-sm font-semibold text-white lg:h-11 lg:w-11 lg:rounded-[16px]"
+            className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[15px] text-sm font-semibold text-white lg:h-11 lg:w-11 lg:rounded-[16px]"
             style={{ backgroundColor: agent.accent }}
           >
-            {agent.avatar}
+            {agent.avatarImage ? (
+              <img
+                src={agent.avatarImage}
+                alt={agent.name}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              agent.avatar
+            )}
           </div>
           <div className="min-w-0">
             <h2 className="truncate text-[16px] font-semibold text-kakao-text">
@@ -287,6 +296,8 @@ export default function ChatWindow({
                     <MessageBubble
                       key={message.id}
                       message={message}
+                      agent={agent}
+                      selfProfile={selfProfile}
                       onDelete={onDeleteMessage}
                     />
                   ))}

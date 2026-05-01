@@ -10,6 +10,7 @@ import { sendChatCompletion } from './services/apiClient.js'
 import {
   loadAgents,
   loadChats,
+  loadPersistedData,
   loadSettings,
   makeAgent,
   makeMessage,
@@ -29,6 +30,7 @@ export default function App() {
   const [settings, setSettings] = useState(loadSettings)
   const [chats, setChats] = useState(loadChats)
   const [typingAgentId, setTypingAgentId] = useState(null)
+  const [storageReady, setStorageReady] = useState(false)
 
   const selectedAgent = useMemo(() => {
     return agents.find((agent) => agent.id === selectedAgentId) || agents[0] || null
@@ -42,12 +44,22 @@ export default function App() {
     : null
 
   useEffect(() => {
-    saveAgents(agents)
-  }, [agents])
+    loadPersistedData().then((data) => {
+      setSettings(data.settings)
+      setAgents(data.agents)
+      setChats(data.chats)
+      setSelectedAgentId(data.agents[0]?.id)
+      setStorageReady(true)
+    })
+  }, [])
 
   useEffect(() => {
-    saveChats(chats)
-  }, [chats])
+    if (storageReady) saveAgents(agents)
+  }, [agents, storageReady])
+
+  useEffect(() => {
+    if (storageReady) saveChats(chats)
+  }, [chats, storageReady])
 
   useEffect(() => {
     if (!agents.some((agent) => agent.id === selectedAgentId)) {
@@ -316,6 +328,12 @@ export default function App() {
       {selectedAgent ? (
         <ChatWindow
           agent={selectedAgent}
+          selfProfile={{
+            name: settings.userName || '我',
+            avatar: settings.userName?.[0] || '我',
+            avatarImage: settings.userAvatarImage || '',
+            accent: '#FEE500'
+          }}
           messages={currentMessages}
           isTyping={isTyping}
           mobileVisible={mobileScreen === 'chat'}
