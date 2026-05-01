@@ -19,7 +19,12 @@
   X
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { resourceSearchAgent } from '../../src/data/agents.js'
 import { callGemini, DEFAULT_GEMINI_MODEL } from '../../src/lib/gemini.js'
+import {
+  isResourceSearchAgent,
+  searchResources
+} from '../../src/services/resourceSearch.js'
 
 const SETTINGS_KEY = 'local-ai-talk-settings'
 const AGENTS_KEY = 'local-ai-talk-agents'
@@ -148,12 +153,14 @@ function App() {
     setTypingId(agentId)
 
     try {
-      const reply = await requestChatCompletion({
-        settings,
-        agent: selectedAgent,
-        history,
-        input: { content, attachments }
-      })
+      const reply = isResourceSearchAgent(selectedAgent)
+        ? await searchResources(content)
+        : await requestChatCompletion({
+            settings,
+            agent: selectedAgent,
+            history,
+            input: { content, attachments }
+          })
       setChats((current) => ({
         ...current,
         [agentId]: [...(current[agentId] || []), makeMessage('assistant', reply)]
@@ -664,7 +671,7 @@ function MessageRow({
               ))}
             </div>
           )}
-          {message.content && <div className="whitespace-pre-wrap break-words">{message.content}</div>}
+          {message.content && <div className="whitespace-pre-wrap break-words"><LinkedText text={message.content} /></div>}
         </div>
         <span className="text-[11px] text-wx-muted">{formatTime(message.createdAt)}</span>
         <button type="button" onClick={() => onDelete(message.id)} className="hidden h-7 w-7 items-center justify-center rounded bg-white text-red-500 group-hover:flex">
@@ -673,6 +680,31 @@ function MessageRow({
       </div>
     </div>
   )
+}
+
+function LinkedText({ text }) {
+  const parts = String(text || '').split(/(https?:\/\/[^\s<>"']+)/g)
+
+  return parts.map((part, index) => {
+    if (!/^https?:\/\//i.test(part)) return part
+
+    const url = part.replace(/[)\]}>，。；;、]+$/g, '')
+    const suffix = part.slice(url.length)
+
+    return (
+      <span key={`${url}-${index}`}>
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="text-blue-600 underline underline-offset-2 hover:text-blue-700"
+        >
+          {url}
+        </a>
+        {suffix}
+      </span>
+    )
+  })
 }
 
 function AgentEditor({ agent, onClose, onSave, onDelete }) {
@@ -1167,6 +1199,7 @@ function readAsDataUrl(blob) {
 function makeAgent(overrides = {}) {
   return {
     id: overrides.id || crypto.randomUUID(),
+    type: overrides.type || 'chat',
     name: overrides.name || '新联系人',
     avatar: overrides.avatar || 'AI',
     avatarImage: overrides.avatarImage || '',
@@ -1193,9 +1226,11 @@ async function loadPersistedData() {
   const nextSettings = settings
     ? { ...defaultSettings, ...settings }
     : { ...defaultSettings, ...readJson(SETTINGS_KEY, {}) }
-  const nextAgents = Array.isArray(agents)
-    ? agents.map(makeAgent)
-    : readJson(AGENTS_KEY, []).map(makeAgent)
+  const nextAgents = ensureBuiltInAgents(
+    Array.isArray(agents)
+      ? agents.map(makeAgent)
+      : readJson(AGENTS_KEY, []).map(makeAgent)
+  )
   const nextChats = chats && typeof chats === 'object' ? chats : readJson(CHATS_KEY, {})
 
   if (!settings) writeDbValue(SETTINGS_KEY, nextSettings)
@@ -1203,6 +1238,12 @@ async function loadPersistedData() {
   if (!chats) writeDbValue(CHATS_KEY, nextChats)
 
   return { settings: nextSettings, agents: nextAgents, chats: nextChats }
+}
+
+function ensureBuiltInAgents(agents) {
+  const list = Array.isArray(agents) ? agents : []
+  if (list.some((agent) => agent.id === resourceSearchAgent.id)) return list
+  return [makeAgent(resourceSearchAgent), ...list]
 }
 
 function readJson(key, fallback) {
