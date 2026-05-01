@@ -1,4 +1,5 @@
-export const RESOURCE_SEARCH_API = 'https://vcsoso-search.tlsid.workers.dev'
+export const RESOURCE_SEARCH_API =
+  'https://vcsoso-search-api.netlify.app/.netlify/functions/search-resource'
 
 export function isResourceSearchAgent(agent) {
   return agent?.type === 'resource-search' || agent?.id === 'resource-search-assistant'
