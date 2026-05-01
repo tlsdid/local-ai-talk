@@ -1,4 +1,8 @@
 import { defaultAgents, resourceSearchAgent } from '../data/agents.js'
+import {
+  normalizeApiType,
+  normalizeRequestMode
+} from '../data/providerPresets.js'
 
 const SETTINGS_KEY = 'local-ai-talk-settings'
 const CHATS_KEY = 'local-ai-talk-chats'
@@ -7,15 +11,13 @@ const DB_NAME = 'local-ai-talk-db'
 const DB_VERSION = 1
 const STORE_NAME = 'keyval'
 
-function normalizeApiType(apiType) {
-  return apiType === 'Gemini' ? 'gemini' : apiType || 'openai-compatible'
-}
-
 export const defaultSettings = {
   uiStyle: 'kakao',
   userName: '',
   userAvatarImage: '',
   userAvatarImageSize: 0,
+  providerPreset: 'custom',
+  providerKeys: {},
   providerName: '',
   baseUrl: '',
   apiKey: '',
@@ -37,7 +39,12 @@ export function saveSettings(settings) {
   const normalized = {
     ...defaultSettings,
     ...settings,
-    apiType: normalizeApiType(settings.apiType)
+    providerKeys:
+      settings.providerKeys && typeof settings.providerKeys === 'object'
+        ? settings.providerKeys
+        : {},
+    apiType: normalizeApiType(settings.apiType),
+    requestMode: normalizeRequestMode(settings.requestMode)
   }
   writeDbValue(SETTINGS_KEY, normalized)
   try {
@@ -123,7 +130,12 @@ export async function loadPersistedData() {
   const nextSettings = {
     ...defaultSettings,
     ...storedSettings,
-    apiType: normalizeApiType(storedSettings.apiType)
+    providerKeys:
+      storedSettings.providerKeys && typeof storedSettings.providerKeys === 'object'
+        ? storedSettings.providerKeys
+        : {},
+    apiType: normalizeApiType(storedSettings.apiType),
+    requestMode: normalizeRequestMode(storedSettings.requestMode)
   }
   const nextAgents = Array.isArray(agents)
     ? ensureBuiltInAgents(agents.map(normalizeAgent))
@@ -194,7 +206,7 @@ function normalizeAgent(agent) {
       enabled: Boolean(agent.apiConfig?.enabled),
       providerName: agent.apiConfig?.providerName || '',
       apiType: normalizeApiType(agent.apiConfig?.apiType),
-      requestMode: agent.apiConfig?.requestMode || 'auto',
+      requestMode: normalizeRequestMode(agent.apiConfig?.requestMode),
       baseUrl: agent.apiConfig?.baseUrl || '',
       apiKey: agent.apiConfig?.apiKey || '',
       model: agent.apiConfig?.model || ''

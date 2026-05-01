@@ -1,26 +1,29 @@
+import {
+  API_TYPE_GEMINI,
+  API_TYPE_OPENAI,
+  NETLIFY_CHAT_PROXY_URL,
+  normalizeApiType,
+  REQUEST_MODE_DIRECT,
+  REQUEST_MODE_LOCAL_PROXY,
+  REQUEST_MODE_NETLIFY_PROXY
+} from '../data/providerPresets.js'
 import { callGemini, DEFAULT_GEMINI_MODEL } from '../lib/gemini.js'
 
 const LOCAL_PROXY_URL = 'http://localhost:3001/api/chat'
-const API_TYPE_OPENAI = 'openai-compatible'
-const API_TYPE_GEMINI = 'gemini'
 
 function isLocalHost() {
   return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
 }
 
 function resolveRequestMode(settings) {
-  if (settings.requestMode === 'proxy') return 'proxy'
-  if (settings.requestMode === 'direct') return 'direct'
-  return isLocalHost() ? 'proxy' : 'direct'
+  if (settings.requestMode === REQUEST_MODE_NETLIFY_PROXY) return REQUEST_MODE_NETLIFY_PROXY
+  if (settings.requestMode === REQUEST_MODE_LOCAL_PROXY) return REQUEST_MODE_LOCAL_PROXY
+  if (settings.requestMode === REQUEST_MODE_DIRECT) return REQUEST_MODE_DIRECT
+  return isLocalHost() ? REQUEST_MODE_LOCAL_PROXY : REQUEST_MODE_DIRECT
 }
 
 function joinUrl(baseUrl, path) {
   return `${String(baseUrl).replace(/\/+$/, '')}/${String(path).replace(/^\/+/, '')}`
-}
-
-function normalizeApiType(apiType) {
-  if (apiType === 'Gemini') return API_TYPE_GEMINI
-  return apiType || API_TYPE_OPENAI
 }
 
 function toProviderMessages(agent, history, input) {
@@ -68,11 +71,11 @@ export async function sendChatCompletion({ settings, agent, history, input }) {
   const apiType = normalizeApiType(effectiveSettings.apiType)
   const messages = toProviderMessages(agent, history, input)
 
-  if (!effectiveSettings.apiKey.trim()) {
-    throw new Error(apiType === API_TYPE_GEMINI ? '缺少 Gemini API Key' : '请先在设置里填写 API Key。')
+  if (!effectiveSettings.apiKey?.trim()) {
+    throw new Error(apiType === API_TYPE_GEMINI ? '缺少 Gemini API Key。' : '请先在设置里填写 API Key。')
   }
 
-  if (!effectiveSettings.model.trim() && apiType !== API_TYPE_GEMINI) {
+  if (!effectiveSettings.model?.trim() && apiType !== API_TYPE_GEMINI) {
     throw new Error('请先在设置里填写 Model。')
   }
 
@@ -84,14 +87,11 @@ export async function sendChatCompletion({ settings, agent, history, input }) {
       temperature: 0.7
     })
 
-    if (!content) {
-      throw new Error('Gemini 响应为空。')
-    }
-
+    if (!content) throw new Error('Gemini 响应为空。')
     return content.trim()
   }
 
-  if (!effectiveSettings.baseUrl.trim()) {
+  if (!effectiveSettings.baseUrl?.trim()) {
     throw new Error('请先在设置里填写 Base URL。')
   }
 
@@ -110,16 +110,19 @@ export async function sendChatCompletion({ settings, agent, history, input }) {
 
   let response
   try {
-    if (requestMode === 'proxy') {
-      response = await fetch(LOCAL_PROXY_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          baseURL: effectiveSettings.baseUrl.trim(),
-          apiKey: effectiveSettings.apiKey.trim(),
-          ...body
-        })
-      })
+    if (requestMode === REQUEST_MODE_LOCAL_PROXY || requestMode === REQUEST_MODE_NETLIFY_PROXY) {
+      response = await fetch(
+        requestMode === REQUEST_MODE_NETLIFY_PROXY ? NETLIFY_CHAT_PROXY_URL : LOCAL_PROXY_URL,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            baseURL: effectiveSettings.baseUrl.trim(),
+            apiKey: effectiveSettings.apiKey.trim(),
+            ...body
+          })
+        }
+      )
     } else {
       response = await fetch(joinUrl(effectiveSettings.baseUrl.trim(), '/chat/completions'), {
         method: 'POST',
@@ -131,10 +134,13 @@ export async function sendChatCompletion({ settings, agent, history, input }) {
       })
     }
   } catch {
-    if (requestMode === 'proxy') {
-      throw new Error('本地代理服务未启动，请先运行 npm run dev:all')
+    if (requestMode === REQUEST_MODE_LOCAL_PROXY) {
+      throw new Error('本地代理服务未启动，请先运行 npm run dev:all。')
     }
-    throw new Error('浏览器直连失败，可能是服务商 CORS 限制。NVIDIA 等接口请切换为本地代理并运行 npm run dev:all')
+    if (requestMode === REQUEST_MODE_NETLIFY_PROXY) {
+      throw new Error('Netlify 代理请求失败，请检查 chat-proxy 函数是否已部署。')
+    }
+    throw new Error('浏览器直连失败，可能是服务商 CORS 限制；NVIDIA 等接口请使用 Netlify 代理或本地代理。')
   }
 
   const payload = await readJsonResponse(response)
@@ -149,7 +155,7 @@ export async function sendChatCompletion({ settings, agent, history, input }) {
   }
 
   const content =
-    requestMode === 'proxy'
+    requestMode === REQUEST_MODE_LOCAL_PROXY || requestMode === REQUEST_MODE_NETLIFY_PROXY
       ? payload?.content
       : payload?.choices?.[0]?.message?.content
 
@@ -225,9 +231,7 @@ function buildTextPrompt(content, images, files) {
       } else if (file.parseError) {
         lines.push(`文件解析失败：${file.parseError}`)
       } else {
-        lines.push(
-          '这个文件当前只作为附件保存，尚未在前端解析正文；请根据文件名和用户问题说明可行的下一步。'
-        )
+        lines.push('这个文件当前只作为附件保存，尚未在前端解析正文；请根据文件名和用户问题说明可行的下一步。')
       }
     })
   }

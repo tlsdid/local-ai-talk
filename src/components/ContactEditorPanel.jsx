@@ -1,33 +1,12 @@
 import { RotateCcw, Trash2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { defaultAgentMap } from '../data/agents.js'
+import {
+  API_TYPE_GEMINI,
+  apiTypes,
+  requestModes
+} from '../data/providerPresets.js'
 import { prepareAvatarImage } from '../utils/avatarImage.js'
-
-const apiTypes = [
-  {
-    value: 'openai-compatible',
-    label: 'OpenAI Compatible Chat Completions'
-  },
-  {
-    value: 'gemini',
-    label: 'Gemini'
-  }
-]
-
-const requestModes = [
-  {
-    value: 'auto',
-    label: '自动选择：本地用代理，GitHub 网页用直连'
-  },
-  {
-    value: 'direct',
-    label: '浏览器直连'
-  },
-  {
-    value: 'proxy',
-    label: '本地代理'
-  }
-]
 
 export default function ContactEditorPanel({
   open,
@@ -41,7 +20,7 @@ export default function ContactEditorPanel({
   const [draft, setDraft] = useState(agent)
   const avatarInputRef = useRef(null)
   const hasDefault = Boolean(defaultAgentMap[agent?.id])
-  const isGemini = draft?.apiConfig?.apiType === 'gemini'
+  const isGemini = draft?.apiConfig?.apiType === API_TYPE_GEMINI
 
   useEffect(() => {
     setDraft(agent)
@@ -70,12 +49,12 @@ export default function ContactEditorPanel({
         ...current.apiConfig,
         apiType,
         providerName:
-          apiType === 'gemini'
+          apiType === API_TYPE_GEMINI
             ? current.apiConfig.providerName || 'Gemini'
             : current.apiConfig.providerName,
-        baseUrl: apiType === 'gemini' ? '' : current.apiConfig.baseUrl,
+        baseUrl: apiType === API_TYPE_GEMINI ? '' : current.apiConfig.baseUrl,
         model:
-          apiType === 'gemini'
+          apiType === API_TYPE_GEMINI
             ? current.apiConfig.model || current.model || 'gemini-2.5-flash-lite'
             : current.apiConfig.model
       }
@@ -109,7 +88,7 @@ export default function ContactEditorPanel({
               {mode === 'create' ? '新增联系人' : '编辑联系人'}
             </h2>
             <p className="mt-1 text-xs text-kakao-muted">
-              联系人配置会保存在本地
+              联系人配置会保存在本地。
             </p>
           </div>
           <button
@@ -270,7 +249,7 @@ export default function ContactEditorPanel({
               </Field>
               <Field label="API Type">
                 <select
-                  value={draft.apiConfig.apiType === 'Gemini' ? 'gemini' : draft.apiConfig.apiType}
+                  value={draft.apiConfig.apiType === 'Gemini' ? API_TYPE_GEMINI : draft.apiConfig.apiType}
                   onChange={(event) => updateApiType(event.target.value)}
                   className="input bg-white"
                 >

@@ -1,32 +1,14 @@
 import { Download, Upload, X } from 'lucide-react'
 import { useRef } from 'react'
+import {
+  API_TYPE_GEMINI,
+  apiTypes,
+  getProviderPreset,
+  providerKeyId,
+  providerPresets,
+  requestModes
+} from '../data/providerPresets.js'
 import { prepareAvatarImage } from '../utils/avatarImage.js'
-
-const apiTypes = [
-  {
-    value: 'openai-compatible',
-    label: 'OpenAI Compatible Chat Completions'
-  },
-  {
-    value: 'gemini',
-    label: 'Gemini'
-  }
-]
-
-const requestModes = [
-  {
-    value: 'auto',
-    label: '自动选择：本地用代理，GitHub 网页用直连'
-  },
-  {
-    value: 'direct',
-    label: '浏览器直连：适合支持 CORS 的服务商'
-  },
-  {
-    value: 'proxy',
-    label: '本地代理：适合 NVIDIA 等会被 CORS 拦截的服务商'
-  }
-]
 
 export default function SettingsPanel({
   open,
@@ -39,14 +21,41 @@ export default function SettingsPanel({
 }) {
   const importInputRef = useRef(null)
   const avatarInputRef = useRef(null)
-  const isGemini = settings.apiType === 'gemini'
+  const activePreset = getProviderPreset(settings.providerPreset)
+  const isGemini = settings.apiType === API_TYPE_GEMINI
 
   if (!open) return null
 
+  function rememberCurrentKey(nextSettings) {
+    const keyId = providerKeyId(settings)
+    return {
+      ...(settings.providerKeys || {}),
+      ...(settings.apiKey ? { [keyId]: settings.apiKey } : {}),
+      ...(nextSettings.providerKeys || {})
+    }
+  }
+
+  function updatePreset(presetId) {
+    const preset = getProviderPreset(presetId)
+    const providerKeys = rememberCurrentKey({})
+    onChange({
+      ...settings,
+      providerPreset: preset.id,
+      providerKeys,
+      providerName: preset.providerName,
+      apiType: preset.apiType,
+      baseUrl: preset.baseUrl,
+      model: preset.model,
+      requestMode: preset.requestMode,
+      apiKey: providerKeys[preset.id] || ''
+    })
+  }
+
   function updateApiType(apiType) {
-    if (apiType === 'gemini') {
+    if (apiType === API_TYPE_GEMINI) {
       onChange({
         ...settings,
+        providerPreset: settings.providerPreset || 'custom',
         providerName: settings.providerName || 'Gemini',
         apiType,
         baseUrl: '',
@@ -55,6 +64,17 @@ export default function SettingsPanel({
       return
     }
     onChange({ ...settings, apiType })
+  }
+
+  function updateApiKey(apiKey) {
+    onChange({
+      ...settings,
+      apiKey,
+      providerKeys: {
+        ...(settings.providerKeys || {}),
+        [providerKeyId(settings)]: apiKey
+      }
+    })
   }
 
   async function handleAvatarUpload(event) {
@@ -98,7 +118,7 @@ export default function SettingsPanel({
               Global API Settings
             </h2>
             <p className="mt-1 text-xs text-kakao-muted">
-              全局配置会保存在本地浏览器存储里
+              配置会保存在本地浏览器，不会写进代码。
             </p>
           </div>
           <button
@@ -185,11 +205,29 @@ export default function SettingsPanel({
             />
           </div>
 
+          <Field label="Provider Preset">
+            <select
+              value={settings.providerPreset || 'custom'}
+              onChange={(event) => updatePreset(event.target.value)}
+              className="input bg-white"
+            >
+              {providerPresets.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+
           <Field label="Provider Name">
             <input
               value={settings.providerName}
               onChange={(event) =>
-                onChange({ ...settings, providerName: event.target.value })
+                onChange({
+                  ...settings,
+                  providerPreset: 'custom',
+                  providerName: event.target.value
+                })
               }
               placeholder={isGemini ? 'Gemini' : ''}
               className="input"
@@ -198,7 +236,7 @@ export default function SettingsPanel({
 
           <Field label="API Type">
             <select
-              value={settings.apiType === 'Gemini' ? 'gemini' : settings.apiType}
+              value={settings.apiType === 'Gemini' ? API_TYPE_GEMINI : settings.apiType}
               onChange={(event) => updateApiType(event.target.value)}
               className="input bg-white"
             >
@@ -232,9 +270,13 @@ export default function SettingsPanel({
             <input
               value={settings.baseUrl}
               onChange={(event) =>
-                onChange({ ...settings, baseUrl: event.target.value })
+                onChange({
+                  ...settings,
+                  providerPreset: 'custom',
+                  baseUrl: event.target.value
+                })
               }
-              placeholder={isGemini ? 'Gemini 不需要 Base URL，此项会被忽略' : 'https://aihubmix.com/v1'}
+              placeholder={isGemini ? 'Gemini 不需要 Base URL，此项会被忽略' : 'https://api.poixe.com/v1'}
               className="input"
             />
           </Field>
@@ -243,9 +285,7 @@ export default function SettingsPanel({
             <input
               type="password"
               value={settings.apiKey}
-              onChange={(event) =>
-                onChange({ ...settings, apiKey: event.target.value })
-              }
+              onChange={(event) => updateApiKey(event.target.value)}
               placeholder={isGemini ? '输入 Google AI Studio API Key' : '输入你自己的 key'}
               className="input"
             />
@@ -257,9 +297,14 @@ export default function SettingsPanel({
               onChange={(event) =>
                 onChange({ ...settings, model: event.target.value })
               }
-              placeholder={isGemini ? 'gemini-2.5-flash-lite' : 'gpt-4.1-free'}
+              placeholder={isGemini ? 'gemini-2.5-flash-lite' : 'gpt-4.1:free'}
               className="input"
             />
+            {activePreset.modelHint && (
+              <p className="mt-2 text-xs leading-5 text-kakao-muted">
+                {activePreset.modelHint}
+              </p>
+            )}
             {isGemini && (
               <p className="mt-2 text-xs text-kakao-muted">
                 可选：gemini-2.5-flash-lite、gemini-2.5-flash
